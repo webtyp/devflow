@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tinywasm/markdown"
+	"webtyp.com/markdown"
 )
 
 // PlanMeta holds the parsed frontmatter of a docs/PLAN.md file.
@@ -99,7 +99,7 @@ func metaFromMap(kv map[string]string) (PlanMeta, error) {
 
 // ParseFrontmatter parses the leading frontmatter block of content and maps it
 // to PlanMeta, requiring 'PLAN'. Structural parsing is delegated to
-// tinywasm/markdown; devflow only owns the "which keys are required" rule.
+// webtyp/markdown; devflow only owns the "which keys are required" rule.
 func ParseFrontmatter(content string) (PlanMeta, error) {
 	kv, err := markdown.ParseFrontmatter(content)
 	if err != nil {

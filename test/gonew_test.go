@@ -2,10 +2,10 @@
 
 package devflow_test
 
-import "github.com/tinywasm/devflow"
+import "webtyp.com/devflow"
 
 import (
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"os"
 	"path/filepath"
 	"strings"

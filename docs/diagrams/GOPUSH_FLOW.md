@@ -112,7 +112,7 @@ flowchart TD
 Guard rails:
 
 - **`git add .` (or `-A`, or any path beyond `go.mod`/`go.sum`) never runs on a
-  dependent** — a `DepsOnly` node (dirty tree, e.g. WIP like `tinywasm/sse`, or a
+  dependent** — a `DepsOnly` node (dirty tree, e.g. WIP like `webtyp/sse`, or a
   pending `docs/PLAN.md`) only ever gets a pathspec-limited
   `git add go.mod go.sum`. Developer WIP is never swept into a deps commit
   ([`TestUpdateDependentModule_DirtyTreeCommitsOnlyGoModAndSum`](../../test/dependents_guard_test.go)).
@@ -139,7 +139,7 @@ Guard rails:
 
   cause: feat: rutas con parámetros opcionales   ← root gopush message, propagated
 
-  - github.com/tinywasm/router v0.1.2 → v0.1.3
+  - webtyp.com/router v0.1.2 → v0.1.3
   ```
 
 ## Output behavior

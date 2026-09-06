@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/tinywasm/command"
-	gitmod "github.com/tinywasm/git"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -910,7 +910,7 @@ func (g *Go) installWasmBrowserTest() error {
 		return nil
 	}
 
-	_, err := command.RunInDir(g.rootDir, "go", "install", "github.com/tinywasm/wasmbrowsertest@latest")
+	_, err := command.RunInDir(g.rootDir, "go", "install", "webtyp.com/wasmbrowsertest@latest")
 	if err != nil {
 		return fmt.Errorf("go install failed: %w", err)
 	}

@@ -2,7 +2,7 @@ package devflow
 
 import (
 	"fmt"
-	"github.com/tinywasm/command"
+	"webtyp.com/command"
 	"os"
 	"path/filepath"
 )

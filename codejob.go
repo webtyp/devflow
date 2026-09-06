@@ -2,15 +2,15 @@ package devflow
 
 import (
 	"fmt"
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/tinywasm/context"
-	keyring "github.com/tinywasm/keyring/auto"
-	"github.com/tinywasm/wizard"
+	"webtyp.com/context"
+	keyring "webtyp.com/keyring/auto"
+	"webtyp.com/wizard"
 	"golang.org/x/term"
 )
 

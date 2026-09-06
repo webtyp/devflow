@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/tinywasm/command"
-	gitmod "github.com/tinywasm/git"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	keyring "github.com/tinywasm/keyring/auto"
+	keyring "webtyp.com/keyring/auto"
 )
 
 // HTTPClient defines the interface for HTTP operations (injectable for tests).

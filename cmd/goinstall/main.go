@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"os"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 func main() {

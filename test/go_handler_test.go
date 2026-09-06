@@ -1,11 +1,11 @@
 package devflow_test
 
-import "github.com/tinywasm/devflow"
+import "webtyp.com/devflow"
 
 import (
 	"fmt"
-	"github.com/tinywasm/command"
-	gitmod "github.com/tinywasm/git"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -134,7 +134,7 @@ func TestHasDependency(t *testing.T) {
 
 go 1.20
 
-require github.com/tinywasm/devflow v0.0.1
+require webtyp.com/devflow v0.0.1
 `
 	os.WriteFile(gomodPath, []byte(content), 0644)
 
@@ -142,7 +142,7 @@ require github.com/tinywasm/devflow v0.0.1
 	goHandler := newGoHandlerWithMockBackup(t, mockGit)
 
 	// Should find the dependency
-	if !goHandler.HasDependency(gomodPath, "github.com/tinywasm/devflow") {
+	if !goHandler.HasDependency(gomodPath, "webtyp.com/devflow") {
 		t.Error("Expected to find dependency")
 	}
 
@@ -746,7 +746,7 @@ func TestGoPush_SkipVerify_DoesNotCallVerify(t *testing.T) {
 }
 
 func TestParseVerifyError_UnknownRevision(t *testing.T) {
-	output := "go: github.com/tinywasm/tinygo@v0.0.0: reading github.com/tinywasm/tinygo/go.mod at revision v0.0.0: unknown revision v0.0.0"
+	output := "go: webtyp.com/tinygo@v0.0.0: reading webtyp.com/tinygo/go.mod at revision v0.0.0: unknown revision v0.0.0"
 
 	dir, cleanup := testCreateGoModule("github.com/test/repo")
 	defer cleanup()
@@ -766,7 +766,7 @@ func TestParseVerifyError_UnknownRevision(t *testing.T) {
 	if !strings.Contains(msg, "is not published") {
 		t.Errorf("Expected actionable message about publishing, got: %s", msg)
 	}
-	if !strings.Contains(msg, "github.com/tinywasm/tinygo@v0.0.0") {
+	if !strings.Contains(msg, "webtyp.com/tinygo@v0.0.0") {
 		t.Errorf("Expected module reference in message, got: %s", msg)
 	}
 }

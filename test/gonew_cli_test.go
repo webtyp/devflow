@@ -3,7 +3,7 @@ package devflow_test
 import (
 	"testing"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 func TestParseAddRemoteArgsFlagsAfterPath(t *testing.T) {
@@ -93,8 +93,8 @@ func TestParseGoNewArgs(t *testing.T) {
 		},
 		{
 			name: "Space separated flag values",
-			args: []string{"my-repo", "A sample Go project", "-owner", "tinywasm"},
-			want: devflow.GoNewCLIOpts{Name: "my-repo", Description: "A sample Go project", Owner: "tinywasm", Visibility: "public", License: "MIT"},
+			args: []string{"my-repo", "A sample Go project", "-owner", "webtyp"},
+			want: devflow.GoNewCLIOpts{Name: "my-repo", Description: "A sample Go project", Owner: "webtyp", Visibility: "public", License: "MIT"},
 		},
 	}
 	for _, tt := range tests {

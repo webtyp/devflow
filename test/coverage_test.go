@@ -1,10 +1,10 @@
 package devflow_test
 
-import "github.com/tinywasm/devflow"
+import "webtyp.com/devflow"
 
 import (
 	"context"
-	"github.com/tinywasm/command"
+	"webtyp.com/command"
 	"os"
 	"os/exec"
 	"testing"

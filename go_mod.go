@@ -3,8 +3,8 @@ package devflow
 import (
 	"bufio"
 	"fmt"
-	"github.com/tinywasm/command"
-	gitmod "github.com/tinywasm/git"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"

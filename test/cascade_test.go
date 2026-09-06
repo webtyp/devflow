@@ -15,14 +15,14 @@ package devflow_test
 
 import (
 	"fmt"
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 // testWriteModule creates <tmp>/<name>/go.mod for module github.com/test/<name>

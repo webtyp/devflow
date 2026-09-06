@@ -26,7 +26,7 @@ func (f *fakeSumDB) Lookup(modulePath, version string) (bool, error) {
 //	downloaded: h1:yFJTFgXK...
 //	go.sum:     h1:HKO7gzbC...
 //
-// for github.com/tinywasm/rbac@v0.0.4 — a version that had, at some point,
+// for webtyp.com/rbac@v0.0.4 — a version that had, at some point,
 // been consulted through the public Go checksum database (sum.golang.org)
 // with different content than what the tag currently holds. That database
 // never updates an entry once recorded: reusing v0.0.4 was unrecoverable

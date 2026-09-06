@@ -1,6 +1,6 @@
 package devflow
 
-import "github.com/tinywasm/git"
+import "webtyp.com/git"
 
 // FolderWatcher defines interface for adding/removing directories to watch
 type FolderWatcher interface {

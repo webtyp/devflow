@@ -63,7 +63,7 @@ gonew my-project "A sample Go project"
 ```bash
 gonew my-lib "Go library" -owner=cdvelop
 gonew my-tool "CLI tool" -owner=veltylabs -visibility=private
-gonew webapp "Web app" -owner=tinywasm
+gonew webapp "Web app" -owner=webtyp
 ```
 
 ### Create a private library
@@ -79,13 +79,13 @@ gonew my-tool "CLI tool" -local-only
 ### Add remote to existing project
 ```bash
 gonew add-remote ./my-project -visibility=public
-gonew add-remote ./my-project -owner=tinywasm -visibility=private
+gonew add-remote ./my-project -owner=webtyp -visibility=private
 ```
 
 ## Features
 
 - **Strict Validation**: Enforces valid repository names and descriptions.
 - **Smart Defaults**: Auto-detects git user and GitHub owner, generates MIT license.
-- **Multi-Account Support**: Use `--owner` to specify different GitHub accounts/organizations (cdvelop, veltylabs, tinywasm, etc.).
+- **Multi-Account Support**: Use `--owner` to specify different GitHub accounts/organizations (cdvelop, veltylabs, webtyp, etc.).
 - **Graceful Fallback**: Falls back to local-only mode if GitHub is unavailable.
 - **Project Structure**: Sets up `main` branch, `.gitignore` for Go, and initial version `v0.0.1`.

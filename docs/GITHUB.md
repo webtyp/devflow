@@ -72,7 +72,7 @@ Use the `-owner` flag to create repos in different organizations:
 
 ```bash
 gonew myapp "Description" -owner=cdvelop
-gonew myapp "Description" -owner=tinywasm
+gonew myapp "Description" -owner=webtyp
 gonew myapp "Description" -owner=veltylabs
 ```
 
@@ -92,7 +92,7 @@ This provides encrypted, OS-level credential protection. Tokens are never stored
 
 ## OAuth App Management
 
-The devflow OAuth App is registered under a **personal GitHub account** (not the tinywasm organization). This is the standard approach for CLI tools (gh, goreleaser, etc.).
+The devflow OAuth App is registered under a **personal GitHub account** (not the webtyp organization). This is the standard approach for CLI tools (gh, goreleaser, etc.).
 
 - **Manage the app**: https://github.com/settings/developers → OAuth Apps → devflow
 - **Client ID**: `Ov23lijHU2vxBCpShn1Q` (defined in `github_auth.go`)

@@ -63,7 +63,7 @@ abrir la PC.
 ### 4.1 Testabilidad — seam de `Runner` (habilita todo el TDD)
 - **Nuevo** `Runner` interface (generaliza `SecretRunner` de `github_secrets.go`)
   con `Run(name string, args ...string) (string, error)`. Inyectable en las
-  funciones de estado. Un `defaultRunner` envuelve `tinywasm/command`.
+  funciones de estado. Un `defaultRunner` envuelve `webtyp/command`.
 - Reescribir `CheckoutPRBranch`, `MergePR`, `MergeAndPublish`, `resolveDefaultBranch`
   para usar el `Runner` inyectado (hoy llaman `command.Run` directo → no mockeable).
 

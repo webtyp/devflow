@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"os"
 	"strings"
 
-	"github.com/tinywasm/devflow"
-	"github.com/tinywasm/gorelease"
-	keyring "github.com/tinywasm/keyring/auto"
+	"webtyp.com/devflow"
+	"webtyp.com/gorelease"
+	keyring "webtyp.com/keyring/auto"
 )
 
 func main() {

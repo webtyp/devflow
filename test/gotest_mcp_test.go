@@ -2,13 +2,13 @@ package devflow_test
 
 import (
 	"context"
-	"github.com/tinywasm/command"
-	gitmod "github.com/tinywasm/git"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 	"os/exec"
 	"testing"
 
-	"github.com/tinywasm/devflow"
-	"github.com/tinywasm/mcp"
+	"webtyp.com/devflow"
+	"webtyp.com/mcp"
 )
 
 func TestGoTestProvider(t *testing.T) {

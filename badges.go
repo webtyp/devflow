@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/tinywasm/command"
+	"webtyp.com/command"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const DevFlowRepository = "github.com/tinywasm/devflow"
+const DevFlowRepository = "webtyp.com/devflow"
 
 // Badges is responsible for creating and managing a collection of badges.
 // It handles parsing input arguments, generating the SVG image, and preparing

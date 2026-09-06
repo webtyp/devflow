@@ -3,7 +3,7 @@ package devflow_test
 import (
 	"testing"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 func TestParseCLIArgs(t *testing.T) {

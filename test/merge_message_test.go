@@ -1,7 +1,7 @@
 package devflow_test
 
 import (
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 	"os"
 	"path/filepath"
 	"testing"

@@ -11,8 +11,8 @@ package devflow_test
 // pass WITHOUT modifying the expectations.
 
 import (
-	"github.com/tinywasm/command"
-	gitmod "github.com/tinywasm/git"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 // testInitRepoWithCommit creates a real git repo with an initial commit

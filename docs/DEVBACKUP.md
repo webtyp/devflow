@@ -5,7 +5,7 @@ Automated backup execution integrated into devflow workflow.
 ## Installation
 
 ```bash
-go install github.com/tinywasm/devflow/cmd/devbackup@latest
+go install webtyp.com/devflow/cmd/devbackup@latest
 ```
 
 ## Usage

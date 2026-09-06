@@ -3,9 +3,9 @@ package devflow
 import (
 	"fmt"
 
-	"github.com/tinywasm/context"
-	"github.com/tinywasm/mcp"
-	"github.com/tinywasm/model"
+	"webtyp.com/context"
+	"webtyp.com/mcp"
+	"webtyp.com/model"
 )
 
 // GoTestProvider exposes the gotest suite as a single MCP tool.

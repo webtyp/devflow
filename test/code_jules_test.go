@@ -2,7 +2,7 @@ package devflow_test
 
 import (
 	"encoding/json"
-	"github.com/tinywasm/command"
+	"webtyp.com/command"
 	"io"
 	"net/http"
 	"os/exec"
@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 // mockHTTPClient is a test double for devflow.HTTPClient.

@@ -1,13 +1,13 @@
 package devflow_test
 
 import (
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 // testChdir changes to the specified directory and returns a cleanup function.

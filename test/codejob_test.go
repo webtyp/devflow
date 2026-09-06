@@ -2,13 +2,13 @@ package devflow_test
 
 import (
 	"fmt"
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 type mockDriver struct {

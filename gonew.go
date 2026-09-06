@@ -2,8 +2,8 @@ package devflow
 
 import (
 	"fmt"
-	"github.com/tinywasm/command"
-	gitmod "github.com/tinywasm/git"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 	"os"
 	"path/filepath"
 	"strings"

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 func TestDotEnv(t *testing.T) {

@@ -1,6 +1,6 @@
 package devflow_test
 
-import "github.com/tinywasm/devflow"
+import "webtyp.com/devflow"
 
 import (
 	"strings"
@@ -146,7 +146,7 @@ func TestConsoleFilter_ErrorMessageWithoutKeywords(t *testing.T) {
 	cf.Add("    time_test.go:45: got unexpected value 123\n")
 	cf.Add("--- FAIL: TestFormatTimeWithNumericString (0.00s)\n")
 	cf.Add("FAIL\n")
-	cf.Add("FAIL\tgithub.com/tinywasm/time\t0.015s\n")
+	cf.Add("FAIL\twebtyp.com/time\t0.015s\n")
 	cf.Flush()
 
 	// The error message SHOULD be shown even without keywords
@@ -300,14 +300,14 @@ func TestConsoleFilter_GoVetFailure(t *testing.T) {
 	cf := devflow.NewConsoleFilter(record)
 
 	// Simulate go vet output with relative paths and sub-messages
-	cf.Add("# github.com/tinywasm/mcp\n")
+	cf.Add("# webtyp.com/mcp\n")
 	cf.Add("./mcp.go:189:15: model.Fielder (missing method Pointers)\n")
 	cf.Add("    have Pointers() []unsafe.Pointer\n")
 	cf.Add("    want Pointers() []*fmt.Value\n")
 	cf.Flush()
 
 	expected := []string{
-		"# github.com/tinywasm/mcp",
+		"# webtyp.com/mcp",
 		"    mcp.go:189:15: model.Fielder (missing method Pointers)",
 		"    have Pointers() []unsafe.Pointer",
 		"    want Pointers() []*fmt.Value",
@@ -382,10 +382,10 @@ func TestConsoleFilter_ReportedIssue(t *testing.T) {
 	cf := devflow.NewConsoleFilter(record)
 
 	// User's failing output
-	cf.Add("# github.com/tinywasm/mcp\n")
-	cf.Add("/home/cesar/go/pkg/mod/github.com/tinywasm/mcp@v0.0.19/client.go:68:38: cannot use &envelope (value of type *struct{Result any \"json:\\\"result\\\"\"}) as \"github.com/tinywasm/fmt\".Fielder value in argument to json.Decode: *struct{Result any \"json:\\\"result\\\"\"} does not implement \"github.com/tinywasm/fmt\".Fielder (missing method Pointers)\n")
-	cf.Add("/home/cesar/go/pkg/mod/github.com/tinywasm/mcp@v0.0.19/client.go:78:25: cannot use envelope.Result (variable of interface type any) as \"github.com/tinywasm/fmt\".Fielder value in argument to json.Encode: any does not implement \"github.com/tinywasm/fmt\".Fielder (missing method Pointers)\n")
-	cf.Add("/home/cesar/go/pkg/mod/github.com/tinywasm/mcp@v0.0.19/client.go:102:24: cannot use rpcRequest{…} (value of struct type rpcRequest) as \"github.com/tinywasm/fmt\".Fielder value in argument to json.Encode: rpcRequest does not implement \"github.com/tinywasm/fmt\".Fielder (missing method Pointers)\n")
+	cf.Add("# webtyp.com/mcp\n")
+	cf.Add("/home/cesar/go/pkg/mod/webtyp.com/mcp@v0.0.19/client.go:68:38: cannot use &envelope (value of type *struct{Result any \"json:\\\"result\\\"\"}) as \"webtyp.com/fmt\".Fielder value in argument to json.Decode: *struct{Result any \"json:\\\"result\\\"\"} does not implement \"webtyp.com/fmt\".Fielder (missing method Pointers)\n")
+	cf.Add("/home/cesar/go/pkg/mod/webtyp.com/mcp@v0.0.19/client.go:78:25: cannot use envelope.Result (variable of interface type any) as \"webtyp.com/fmt\".Fielder value in argument to json.Encode: any does not implement \"webtyp.com/fmt\".Fielder (missing method Pointers)\n")
+	cf.Add("/home/cesar/go/pkg/mod/webtyp.com/mcp@v0.0.19/client.go:102:24: cannot use rpcRequest{…} (value of struct type rpcRequest) as \"webtyp.com/fmt\".Fielder value in argument to json.Encode: rpcRequest does not implement \"webtyp.com/fmt\".Fielder (missing method Pointers)\n")
 	cf.Flush()
 
 	// We WANT to see the file name and the error.

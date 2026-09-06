@@ -2,7 +2,7 @@ package devflow
 
 import (
 	"fmt"
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"os"
 	"path/filepath"
 	"sort"

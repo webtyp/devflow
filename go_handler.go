@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tinywasm/command"
+	"webtyp.com/command"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
-	gitmod "github.com/tinywasm/git"
-	"github.com/tinywasm/gorun"
+	gitmod "webtyp.com/git"
+	"webtyp.com/gorun"
 )
 
 // Go handler for Go operations

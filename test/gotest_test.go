@@ -1,10 +1,10 @@
 package devflow_test
 
-import "github.com/tinywasm/devflow"
+import "webtyp.com/devflow"
 
 import (
 	"fmt"
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"strings"
 	"testing"
 )
@@ -88,9 +88,9 @@ FAIL`,
 		},
 		{
 			name: "Real WASM test failure scenario - minimal output",
-			input: `# github.com/tinywasm/jsvalue
-package github.com/tinywasm/jsvalue: build constraints exclude all Go files in /home/cesar/Dev/Pkg/tinywasm/jsvalue
-FAIL    github.com/tinywasm/jsvalue [setup failed]
+			input: `# webtyp.com/jsvalue
+package webtyp.com/jsvalue: build constraints exclude all Go files in /home/cesar/Dev/Pkg/webtyp/jsvalue
+FAIL    webtyp.com/jsvalue [setup failed]
 FAIL
 === RUN   TestToJS
 === RUN   TestToJS/int32
@@ -102,7 +102,7 @@ FAIL
     --- FAIL: TestToJS/uint16 (0.00s)
 coverage: 92.5% of statements
 exit with status 1
-FAIL    github.com/tinywasm/jsvalue     0.462s
+FAIL    webtyp.com/jsvalue     0.462s
 FAIL`,
 			expected: []string{
 				"--- FAIL: TestToJS (0.01s)",
@@ -113,39 +113,39 @@ FAIL`,
 			},
 			excluded: []string{
 				// Note: "# github.com/..." is kept because it shows which package has errors
-				"package github.com/tinywasm/jsvalue: build constraints",
+				"package webtyp.com/jsvalue: build constraints",
 				"[setup failed]",
 				"coverage:",
 				"exit with status",
-				"FAIL\tgithub.com/tinywasm/jsvalue",
+				"FAIL\twebtyp.com/jsvalue",
 			},
 		},
 		{
 			name:     "Filters duplicate coverage from stdlib tests",
-			input:    "ok  \tgithub.com/tinywasm/time\t0.504s\tcoverage: 96.8% of statements\nvet ✅, tests ✅, race ✅, coverage: 100% ✅, wasm ✅",
+			input:    "ok  \twebtyp.com/time\t0.504s\tcoverage: 96.8% of statements\nvet ✅, tests ✅, race ✅, coverage: 100% ✅, wasm ✅",
 			expected: []string{"vet ✅", "tests ✅", "race ✅", "coverage: 100% ✅", "wasm ✅"},
-			excluded: []string{"ok  \tgithub.com/tinywasm", "coverage: 96.8%", "0.504s"},
+			excluded: []string{"ok  \tgithub.com/webtyp", "coverage: 96.8%", "0.504s"},
 		},
 		{
 			name: "Real data race detection with stack traces",
 			input: `=== RUN   TestRaceCondition
 WARNING: DATA RACE
 Read at 0x00c000018090 by goroutine 8:
-  github.com/tinywasm/test.(*Counter).Get()
-      /home/cesar/Dev/Pkg/tinywasm/test/counter.go:15 +0x38
-  github.com/tinywasm/test.TestRaceCondition.func1()
-      /home/cesar/Dev/Pkg/tinywasm/test/race_test.go:20 +0x2c
+  webtyp.com/test.(*Counter).Get()
+      /home/cesar/Dev/Pkg/webtyp/test/counter.go:15 +0x38
+  webtyp.com/test.TestRaceCondition.func1()
+      /home/cesar/Dev/Pkg/webtyp/test/race_test.go:20 +0x2c
 
 Previous write at 0x00c000018090 by goroutine 7:
-  github.com/tinywasm/test.(*Counter).Inc()
-      /home/cesar/Dev/Pkg/tinywasm/test/counter.go:10 +0x64
-  github.com/tinywasm/test.TestRaceCondition()
-      /home/cesar/Dev/Pkg/tinywasm/test/race_test.go:15 +0x7c
+  webtyp.com/test.(*Counter).Inc()
+      /home/cesar/Dev/Pkg/webtyp/test/counter.go:10 +0x64
+  webtyp.com/test.TestRaceCondition()
+      /home/cesar/Dev/Pkg/webtyp/test/race_test.go:15 +0x7c
 
 WARNING: DATA RACE
 Read at 0x00c000018090 by goroutine 9:
-  github.com/tinywasm/test.(*Counter).Get()
-      /home/cesar/Dev/Pkg/tinywasm/test/counter.go:15 +0x38
+  webtyp.com/test.(*Counter).Get()
+      /home/cesar/Dev/Pkg/webtyp/test/counter.go:15 +0x38
 WARNING: DATA RACE
 --- FAIL: TestRaceCondition (0.00s)
     testing.go:1617: race detected during execution of test
@@ -172,10 +172,10 @@ panic: runtime error: invalid memory address or nil pointer dereference
 [signal SIGSEGV: segmentation violation code=0x1 addr=0x0 pc=0x5a2e45]
 
 goroutine 6 [running]:
-github.com/tinywasm/test.(*Handler).Process(...)
-	/home/cesar/Dev/Pkg/tinywasm/test/handler.go:25
-github.com/tinywasm/test.TestNilPointer(0xc0000a6b60)
-	/home/cesar/Dev/Pkg/tinywasm/test/handler_test.go:12 +0x25
+webtyp.com/test.(*Handler).Process(...)
+	/home/cesar/Dev/Pkg/webtyp/test/handler.go:25
+webtyp.com/test.TestNilPointer(0xc0000a6b60)
+	/home/cesar/Dev/Pkg/webtyp/test/handler_test.go:12 +0x25
 testing.tRunner(0xc0000a6b60, 0x5f4c28)
 	/usr/local/go/src/testing/testing.go:1689 +0xfb
 created by testing.(*T).Run in goroutine 1
@@ -232,32 +232,32 @@ func TestShouldEnableWasm(t *testing.T) {
 	}{
 		{
 			name:      "Client - Identical (Purely Native)",
-			nativeOut: "github.com/tinywasm/client [a_test.go]\nbenchmark/err [syscall/js error]",
-			wasmOut:   "github.com/tinywasm/client [a_test.go]",
+			nativeOut: "webtyp.com/client [a_test.go]\nbenchmark/err [syscall/js error]",
+			wasmOut:   "webtyp.com/client [a_test.go]",
 			expected:  false,
 		},
 		{
 			name:      "JSValue - WASM only (Native yields nothing functional)",
-			nativeOut: "github.com/tinywasm/jsvalue [] []",
-			wasmOut:   "github.com/tinywasm/jsvalue [jsvalue_test.go] []",
+			nativeOut: "webtyp.com/jsvalue [] []",
+			wasmOut:   "webtyp.com/jsvalue [jsvalue_test.go] []",
 			expected:  true,
 		},
 		{
 			name:      "Fetch - Dual (Additional WASM test file)",
-			nativeOut: "github.com/tinywasm/fetch [] [stdlib_test.go]",
-			wasmOut:   "github.com/tinywasm/fetch [] [stdlib_test.go wasm_test.go]",
+			nativeOut: "webtyp.com/fetch [] [stdlib_test.go]",
+			wasmOut:   "webtyp.com/fetch [] [stdlib_test.go wasm_test.go]",
 			expected:  true,
 		},
 		{
 			name:      "Real Client Scenario (with construction noise)",
-			nativeOut: "package github.com/tinywasm/client/benchmark/shared\nimports syscall/js: build constraints exclude all Go files\ngithub.com/tinywasm/client [wasm_exec_test.go tinystring_test.go] []",
-			wasmOut:   "github.com/tinywasm/client [wasm_exec_test.go tinystring_test.go] []",
+			nativeOut: "package webtyp.com/client/benchmark/shared\nimports syscall/js: build constraints exclude all Go files\nwebtyp.com/client [wasm_exec_test.go tinystring_test.go] []",
+			wasmOut:   "webtyp.com/client [wasm_exec_test.go tinystring_test.go] []",
 			expected:  false,
 		},
 		{
 			name:      "KVDB - Purely Native (no tags)",
-			nativeOut: "github.com/tinywasm/kvdb [methods_test.go] []",
-			wasmOut:   "github.com/tinywasm/kvdb [methods_test.go] []",
+			nativeOut: "webtyp.com/kvdb [methods_test.go] []",
+			wasmOut:   "webtyp.com/kvdb [methods_test.go] []",
 			expected:  false,
 		},
 	}
@@ -331,15 +331,15 @@ func TestEvaluateTestResults(t *testing.T) {
 		{
 			name: "Client Scenario: Partial Success (Native ok, subpackages tag-excluded)",
 			err:  fmt.Errorf("exit 1"),
-			output: "# github.com/tinywasm/client/benchmark/shared\n" +
-				"package github.com/tinywasm/client/benchmark/shared\n" +
+			output: "# webtyp.com/client/benchmark/shared\n" +
+				"package webtyp.com/client/benchmark/shared\n" +
 				"        imports syscall/js: build constraints exclude all Go files in /usr/local/go/src/syscall/js\n" +
-				"FAIL\tgithub.com/tinywasm/client/benchmark/shared [setup failed]\n" +
-				"# github.com/tinywasm/client/test\n" +
-				"package github.com/tinywasm/client/benchmark/shared\n" +
+				"FAIL\twebtyp.com/client/benchmark/shared [setup failed]\n" +
+				"# webtyp.com/client/test\n" +
+				"package webtyp.com/client/benchmark/shared\n" +
 				"        imports syscall/js: build constraints exclude all Go files in /usr/local/go/src/syscall/js\n" +
-				"FAIL\tgithub.com/tinywasm/client/test [setup failed]\n" +
-				"ok  \tgithub.com/tinywasm/client      4.417s\n" +
+				"FAIL\twebtyp.com/client/test [setup failed]\n" +
+				"ok  \twebtyp.com/client      4.417s\n" +
 				"FAIL",
 			expected:    "Passing",
 			expectedRan: true,
@@ -538,7 +538,7 @@ goroutine 1 [running]:`,
 		{
 			name: "Skipped test must not be reported as timeout",
 			output: `=== RUN   TestAwaitRequest_success
-    async_wasm_test.go:41: covered by tinywasm/indexdb integration tests
+    async_wasm_test.go:41: covered by webtyp/indexdb integration tests
 --- SKIP: TestAwaitRequest_success (0.00s)`,
 			expected: nil,
 		},
@@ -575,26 +575,26 @@ func TestParseWasmTestPackages(t *testing.T) {
 	}{
 		{
 			name: "Two build targets - host-only packages are skipped, not failed",
-			goList: "github.com/tinywasm/goflare 0 2 0\n" + // root: sources are all !wasm
-				"github.com/tinywasm/goflare/cmd/goflare 1 0 0\n" + // a binary, no tests
-				"github.com/tinywasm/goflare/edge 1 0 0\n" + // wasm code, no tests
-				"github.com/tinywasm/goflare/tests 0 0 3\n", // external tests: the only runnable one
-			expected: []string{"github.com/tinywasm/goflare/tests"},
+			goList: "webtyp.com/goflare 0 2 0\n" + // root: sources are all !wasm
+				"webtyp.com/goflare/cmd/goflare 1 0 0\n" + // a binary, no tests
+				"webtyp.com/goflare/edge 1 0 0\n" + // wasm code, no tests
+				"webtyp.com/goflare/tests 0 0 3\n", // external tests: the only runnable one
+			expected: []string{"webtyp.com/goflare/tests"},
 		},
 		{
 			name:     "Internal tests with sources present are kept",
-			goList:   "github.com/tinywasm/dom 4 2 0\n",
-			expected: []string{"github.com/tinywasm/dom"},
+			goList:   "webtyp.com/dom 4 2 0\n",
+			expected: []string{"webtyp.com/dom"},
 		},
 		{
 			name:     "Package without tests is skipped",
-			goList:   "github.com/tinywasm/js 3 0 0\n",
+			goList:   "webtyp.com/js 3 0 0\n",
 			expected: nil,
 		},
 		{
 			name:     "Malformed lines are ignored",
-			goList:   "no-counts-here\ngithub.com/x/y 1 1\n\ngithub.com/tinywasm/ok 1 1 0\n",
-			expected: []string{"github.com/tinywasm/ok"},
+			goList:   "no-counts-here\ngithub.com/x/y 1 1\n\nwebtyp.com/ok 1 1 0\n",
+			expected: []string{"webtyp.com/ok"},
 		},
 	}
 

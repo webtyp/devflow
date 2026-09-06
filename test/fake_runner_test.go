@@ -1,6 +1,6 @@
 package devflow_test
 
-import gitmod "github.com/tinywasm/git"
+import gitmod "webtyp.com/git"
 
 // newTestGitHub creates a *GitHub with injected fakeRunner.
 func newTestGitHub(fake *fakeRunner) *gitmod.GitHub {

@@ -3,14 +3,14 @@ package devflow
 import (
 	"encoding/json"
 	"fmt"
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
-	keyring "github.com/tinywasm/keyring/auto"
+	keyring "webtyp.com/keyring/auto"
 )
 
 // JulesSessionState polls the Jules API for session status.

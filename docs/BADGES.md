@@ -35,7 +35,7 @@ badges -test-status="Failing" -coverage=50 -module-name="my-mod"
 You can importantly use the `badges` package directly in your Go code to generate SVGs programmatically.
 
 ```go
-import "github.com/tinywasm/devflow"
+import "webtyp.com/devflow"
 
 func main() {
     // Define badges in "Label:Value:Color" format

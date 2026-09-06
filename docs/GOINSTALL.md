@@ -5,7 +5,7 @@ A utility command that automatically installs all components of the `devflow` to
 ## Installation
 
 ```bash
-go install github.com/tinywasm/devflow/cmd/goinstall@latest
+go install webtyp.com/devflow/cmd/goinstall@latest
 ```
 
 ## Usage

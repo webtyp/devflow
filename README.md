@@ -28,7 +28,7 @@ Complete Go development automation: project init, testing, versioning, updates, 
 
 ```bash
 # Install all commands at once (includes codejob and all other tools)
-go install github.com/tinywasm/devflow/cmd/goinstall@latest && goinstall
+go install webtyp.com/devflow/cmd/goinstall@latest && goinstall
 ```
 
 Or install a single command — see each tool's doc linked above.
@@ -40,7 +40,7 @@ Or install a single command — see each tool's doc linked above.
 - **Zero config** - Auto-detects tests, project structure, WASM environments
 - **Minimal output** - Single-line summaries for terminals and LLMs
 - **Smart versioning** - Auto-increments tags, skips duplicates
-- **Multi-account** - Switch GitHub orgs easily (cdvelop, veltylabs, tinywasm)
+- **Multi-account** - Switch GitHub orgs easily (cdvelop, veltylabs, webtyp)
 - **Dependency updates** - Auto-updates dependent modules in workspace
 - **Full testing** - Combines vet, tests, race detection, and **exact weighted coverage** across all packages
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 func TestWatchdogCumulativeNotKilled(t *testing.T) {

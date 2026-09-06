@@ -1,12 +1,12 @@
 package devflow
 
 import (
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"path/filepath"
 	"strings"
 
-	"github.com/tinywasm/context"
-	"github.com/tinywasm/wizard"
+	"webtyp.com/context"
+	"webtyp.com/wizard"
 )
 
 // GetSteps returns the sequence of steps to create a new Go project
@@ -75,7 +75,7 @@ func (gn *GoNew) GetSteps() []*wizard.Step {
 		// Step 4: Description
 		{
 			LabelText: "Description",
-			DefaultFn: func(ctx *context.Context) string { return "Created via TinyWasm Wizard" },
+			DefaultFn: func(ctx *context.Context) string { return "Created via WebTyp Wizard" },
 			OnInputFn: func(in string, ctx *context.Context) (bool, error) {
 				if in == "" {
 					return false, nil

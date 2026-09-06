@@ -1,6 +1,6 @@
 package devflow_test
 
-import "github.com/tinywasm/devflow"
+import "webtyp.com/devflow"
 
 import (
 	"fmt"

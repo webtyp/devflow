@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 func main() {

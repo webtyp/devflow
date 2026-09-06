@@ -2,15 +2,15 @@ package devflow_test
 
 import (
 	"fmt"
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/tinywasm/command"
-	"github.com/tinywasm/devflow"
+	"webtyp.com/command"
+	"webtyp.com/devflow"
 )
 
 // memStore is an in-memory gitmod.SecretStore for tests.

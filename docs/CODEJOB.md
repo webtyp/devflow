@@ -65,7 +65,7 @@ dispatch".
 ### Local
 
 ```bash
-go install github.com/tinywasm/devflow/cmd/codejob@latest
+go install webtyp.com/devflow/cmd/codejob@latest
 
 # Dispatch / advance: runs the phase implied by the current STATUS.
 codejob
@@ -80,7 +80,7 @@ codejob 'feat: implemented feature' v0.3.0
 ```bash
 # Scaffold the workflow and register the secrets from your keyring.
 codejob --init-action                          # this repo only
-codejob --init-action --org tinywasm --visibility all   # once for the whole org
+codejob --init-action --org webtyp --visibility all   # once for the whole org
 ```
 
 After that, the loop runs without opening your PC:

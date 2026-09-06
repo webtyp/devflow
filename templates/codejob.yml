@@ -25,7 +25,7 @@ jobs:
           go-version: 'stable'
 
       - name: Install CodeJob
-        run: go install github.com/tinywasm/devflow/cmd/codejob@latest
+        run: go install webtyp.com/devflow/cmd/codejob@latest
 
       - name: Run CodeJob CLI Action
         env:

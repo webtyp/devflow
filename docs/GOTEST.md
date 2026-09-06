@@ -5,7 +5,7 @@ Automated Go testing: runs vet, stdlib tests, race detection, coverage, and WASM
 ## Installation
 
 ```bash
-go install github.com/tinywasm/devflow/cmd/gotest@latest
+go install webtyp.com/devflow/cmd/gotest@latest
 ```
 
 ## Usage
@@ -85,7 +85,7 @@ to the browser via TinyGo, whenever an import is added or removed.
 It is opt-in because it is slow: TinyGo compiles through LLVM, so a run takes
 minutes instead of seconds. It also bypasses the test cache. If TinyGo is not
 installed, the run fails with install instructions
-(`go run github.com/tinywasm/tinygo/cmd/tinygoinstall@latest`).
+(`go run webtyp.com/tinygo/cmd/tinygoinstall@latest`).
 
 ### With arguments (fast path):
 

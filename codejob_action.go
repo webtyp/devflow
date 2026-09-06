@@ -3,11 +3,11 @@ package devflow
 import (
 	_ "embed"
 	"fmt"
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"os"
 	"path/filepath"
 
-	keyring "github.com/tinywasm/keyring/auto"
+	keyring "webtyp.com/keyring/auto"
 )
 
 //go:embed templates/codejob.yml

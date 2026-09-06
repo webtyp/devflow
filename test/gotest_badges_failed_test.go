@@ -2,15 +2,15 @@ package devflow_test
 
 import (
 	"context"
-	"github.com/tinywasm/command"
-	gitmod "github.com/tinywasm/git"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 func TestGotest_BadgesOnlyOnSuccess(t *testing.T) {

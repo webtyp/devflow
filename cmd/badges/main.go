@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 func main() {

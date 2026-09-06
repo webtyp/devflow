@@ -1,13 +1,13 @@
 package devflow_test
 
 import (
-	gitmod "github.com/tinywasm/git"
+	gitmod "webtyp.com/git"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 // testCreateGoModule duplicated here because I cannot access it from other files easily in this env it seems?

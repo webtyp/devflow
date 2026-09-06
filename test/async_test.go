@@ -1,8 +1,8 @@
 package devflow_test
 
 import (
-	"github.com/tinywasm/command"
-	gitmod "github.com/tinywasm/git"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -94,7 +94,7 @@ func TestAsyncUpdateFlow(t *testing.T) {
 
 			// Mock 'go list -m' (module path detection)
 			// This is CRITICAL because we are running in devflow root (not mocked dir),
-			// so real 'go list -m' returns 'github.com/tinywasm/devflow', breaking dependency lookup.
+			// so real 'go list -m' returns 'webtyp.com/devflow', breaking dependency lookup.
 			if cmdStr == "list -m" || (strings.Contains(cmdStr, "list") && strings.Contains(cmdStr, "-m") && !strings.Contains(cmdStr, "-json")) {
 				return exec.Command("echo", "github.com/test/main")
 			}

@@ -1,8 +1,8 @@
 package devflow_test
 
 import (
-	"github.com/tinywasm/command"
-	gitmod "github.com/tinywasm/git"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 	"io"
 	"net/http"
 	"os"
@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tinywasm/devflow"
+	"webtyp.com/devflow"
 )
 
 type mockStateHTTPClient struct {
