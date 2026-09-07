@@ -75,7 +75,7 @@ func TestExample(t *testing.T) {}
 	mockGit := &MockGitClient{}
 	goHandler := newGoHandlerWithMockBackup(t, mockGit)
 
-	_, err := goHandler.Test([]string{}, false, 0, false, false) // quiet mode, full suite, default timeout, allow cache, runAll=false
+	_, err := goHandler.Test(devflow.TestOptions{})
 	if err != nil {
 		// In test environment, tests might fail, but we check the call works
 		t.Log("Test failed as expected in test environment:", err)

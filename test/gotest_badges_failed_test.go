@@ -68,7 +68,7 @@ func TestGotest_BadgesOnlyOnSuccess(t *testing.T) {
 	g.SetLog(t.Log)
 
 	// 2. Run tests - should FAIL
-	_, err = g.Test(nil, true, 5, true, false)
+	_, err = g.Test(devflow.TestOptions{SkipRace: true, Timeout: 5, NoCache: true})
 	if err == nil {
 		t.Fatal("Expected Test() to return error for failing tests")
 	}
@@ -95,7 +95,7 @@ func TestGotest_BadgesOnlyOnSuccess(t *testing.T) {
 	shouldFail = false
 
 	// 5. Run tests - should PASS
-	_, err = g.Test(nil, true, 5, true, false)
+	_, err = g.Test(devflow.TestOptions{SkipRace: true, Timeout: 5, NoCache: true})
 	if err != nil {
 		t.Fatalf("Expected Test() to succeed, got error: %v", err)
 	}

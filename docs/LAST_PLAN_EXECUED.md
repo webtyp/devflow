@@ -1,148 +1,165 @@
 ---
-PLAN: "feat: unify codejob state in PLAN.md frontmatter, agent roles, and the cloud loop"
-TAG: v0.5.0
+PLAN: "refactor!: Go.Test takes TestOptions instead of five positional parameters"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
-SESSION: 12119983344966392524
 ---
 
-# Plan — Estado único en `docs/PLAN.md`, roles de agente y loop en la nube
+> This plan is dispatched via the CodeJob workflow. See skill: agents-workflow.
 
-Plan de ejecución para un agente. El **comportamiento objetivo** ya está descrito
-en la documentación (que este plan implementa):
+## Prerequisite — install the test runner
 
-- Comportamiento y uso: [`docs/CODEJOB.md`](CODEJOB.md)
-- Diagramas y mapa de pruebas: [`docs/diagrams/CODEJOB_FLOW.md`](diagrams/CODEJOB_FLOW.md)
+External agents run in isolated environments where `gotest` is not installed.
+Run this **before anything else**; the acceptance criteria depend on it:
 
-Implementa el código hasta que coincida con esos documentos y todas las pruebas
-de §5 pasen.
+```bash
+go install webtyp.com/devflow/cmd/gotest@latest
+```
 
-## 1. Objetivo
+Then use `gotest` for the whole suite and `gotest -run TestName` for one test.
+Never call `go test` directly: `gotest` handles `-vet`, `-race`, `-cover`, the
+WASM suite and the README badges.
 
-Hoy el estado de `codejob` se reparte entre `.env` (sesión efímera, local,
-gitignored) y `docs/PLAN.md`. Por eso el loop **solo vive en la PC**: un runner de
-la nube arranca sin ese `.env`. Movemos **todo** el estado al frontmatter de
-`docs/PLAN.md`; como se commitea, cada transición queda en git y el loop entero
-(despachar → revisar → publicar) corre en GitHub Actions. Además añadimos un
-**agente revisor** opcional como compuerta de calidad antes del humano.
+# Plan — `Go.Test` options struct
 
-Resultado: editar la cabecera y commitear despacha; fusionar el PR publica. Sin
-abrir la PC.
+## The defect
 
-## 2. Principios de ejecución
+`gotest.go:27`:
 
-- **TDD estricto.** Para cada comportamiento: primero el test (rojo), luego el
-  código (verde). El mapa de §5 es la lista mínima; ninguna arista del flujo queda
-  sin test.
-- **Todo con mocks, sin red real.** Ninguna prueba toca red, `git`, `gh` ni el
-  keyring reales. Se inyectan dobles (ver §4.1, seam de `Runner`).
-- **Break change limpio.** Se **elimina** el código viejo (`.env`/`CODEJOB`,
-  `CHECK_PLAN.md`, claves de keyring antiguas). Sin alias, sin migración
-  automática, sin ramas de compatibilidad.
-- **No romper `gopush`.** El cierre sigue siendo `gopush` tag-only (no `gorelease`).
+```go
+func (g *Go) Test(customArgs []string, skipRace bool, timeoutSec int, noCache bool, runAll bool) (string, error)
+```
 
-## 3. Decisiones tomadas (defaults fijados, ya no son preguntas)
+At every call site it reads like this (`gotest_mcp.go:84`):
 
-| # | Decisión |
-|---|---|
-| Estado | Único en el frontmatter de `docs/PLAN.md`; `.env`/`CHECK_PLAN.md` eliminados. |
-| Tokens | Nombre único keyring = env = secret: `JULES_API_KEY`, `GH_TOKEN`. Sin alias. |
-| Runner CI | `ubuntu-latest`; bootstrap `go install …/cmd/codejob@<versión-fijada>`. |
-| Publicación CI | `gopush` tag-only, `--no-cascade`, sin backup. |
-| Revisor | Juzga (postea review nativa de GitHub). No commitea. |
-| Corrección | La orquesta codejob ante `CHANGES_REQUESTED`; corrector = `EXECUTOR` salvo `CORRECTOR`. |
-| Tope de rondas | `ROUND` máximo **3**; superado → pasa a revisión humana. |
-| Cierre | El **humano fusiona** (sin auto-merge); la fusión publica. |
-| Revisores | Uno (`REVIEWER`); lista en cadena queda para después. |
-| Secrets | Por org con `--init-action --org` donde exista org; por-repo en cuentas personales. |
-| Correlación | Por **rama/identidad**, no por session id (los eventos de GitHub no traen el session id). |
+```go
+summary, err = p.g.Test(nil, false, 0, false, false)
+```
 
-## 4. Cambios por archivo
+Nothing about that line says what it does. The proof is in the repository
+itself — `go_handler.go:284` carries a comment whose only job is to decode the
+arguments:
 
-### 4.1 Testabilidad — seam de `Runner` (habilita todo el TDD)
-- **Nuevo** `Runner` interface (generaliza `SecretRunner` de `github_secrets.go`)
-  con `Run(name string, args ...string) (string, error)`. Inyectable en las
-  funciones de estado. Un `defaultRunner` envuelve `webtyp/command`.
-- Reescribir `CheckoutPRBranch`, `MergePR`, `MergeAndPublish`, `resolveDefaultBranch`
-  para usar el `Runner` inyectado (hoy llaman `command.Run` directo → no mockeable).
+```go
+testSummary, err := g.Test([]string{}, skipRace, 0, false, false) // Empty slice = full test suite, 0 = default timeout, false = allow cache, false = runAll
+```
 
-### 4.2 Estado en el frontmatter
-- `frontmatter.go` — `PlanMeta` gana `Executor, Reviewer, Corrector, ReviewGuide,
-  Status, Session, ReviewSession, Round, PR` + constantes de clave. **Escritor**
-  que actualiza solo el bloque de frontmatter preservando el cuerpo.
-- `codejob.go` / `codejob_state.go` — **eliminar** `.env`/`CODEJOB` (parseo,
-  legacy, `CODEJOB_PR`, `LoadCodejobState`/`SaveCodejobState`) y el renombrado a
-  `CHECK_PLAN.md` (`HandleDone`, `.gitignore CHECK_*.md`). El estado se lee/escribe
-  en el frontmatter. Sin código de migración.
+A comment that exists to explain a signature is the signature admitting it
+failed. Three of the five parameters are booleans of the same type, so swapping
+any two compiles silently and changes behaviour.
 
-### 4.3 Roles y drivers
-- `interface.go` — `CodeJobDriver.Send(prompt, title)` → `Send(JobSpec{Role,
-  Branch, PlanPath, Prompt, Title})`; registro de drivers por rol.
-- `code_jules.go` — adaptar `JulesDriver` a `JobSpec`; soportar rol `executor`
-  (implementar el plan) y `reviewer` (revisar el PR de la rama `X` y postear una
-  review nativa).
-- **Nuevo**: despacho del revisor y lectura del veredicto vía `Runner`
-  (`gh pr view --json reviews`), con el tope `ROUND` (=3).
+## Design gate
 
-### 4.4 Auth / tokens
-- `codejob_auth.go` / `codejob_gh_auth.go` — renombrar claves de keyring a
-  `JULES_API_KEY` y `GH_TOKEN` (borrar `jules_api_key`, `github_pat`,
-  `github_token`). Leer primero de la **variable de entorno del mismo nombre**
-  (CI), cayendo al keyring (local).
+Required by skill **api-design**.
 
-### 4.5 CLI y Action
-- `cli.go` — parsear `--ci <phase>` (`dispatch|review|verdict|publish`),
-  `--init-action`, `--force`, `--org`, `--visibility`.
-- `cmd/codejob/main.go` — atender los flags nuevos; actualizar `showHelp()`.
-- **Nuevo** `codejob_action.go` + `templates/codejob.yml` embebido (`go:embed`):
-  `InitCodejobAction(force bool, org, visibility string)` crea
-  `.github/workflows/codejob.yml` (idempotente) y registra `JULES_API_KEY`+`GH_TOKEN`.
-- `github_secrets.go` — `SetSecret` gana soporte `--org`/`--visibility`.
+**1. Prior art.** Go's own standard library uses this shape for exactly this
+situation: `http.Server{}`, `tls.Config{}`, `json.Encoder` — a struct whose zero
+value is the default configuration. `exec.Cmd` likewise. The functional-options
+pattern (`WithRace()`, `WithTimeout(n)`) is the other Go convention; it is
+heavier and is worth its cost only for a public API with many optional knobs
+that must stay backward compatible. This one has five, is internal, and has no
+external users.
 
-### 4.6 Documentación (ya actualizada a objetivo; mantener en sync)
-- `docs/CODEJOB.md`, `docs/diagrams/CODEJOB_FLOW.md`,
-  `docs/codejob/JULES_AUTOMATION.md` describen ya el estado final.
+**2. Novice-name test.** `Test(TestOptions{SkipRace: true})` reads as a
+sentence. `Test(nil, false, 0, false, false)` does not.
 
-## 5. Mapa de pruebas (TDD)
+**3. Ledger.**
 
-Refleja la traza de [`CODEJOB_FLOW.md`](diagrams/CODEJOB_FLOW.md#traceability-test-map).
-Todas con dobles: `Runner` falso (git/gh), driver falso (executor/reviewer),
-`Publisher` mock, `SecretRunner` mock, keyring/env falsos.
+```
+Concepts to learn            +1  / −0   (one struct)
+Lines at the call site        0
+Comments needed to read it   −1         (go_handler.go:284 is deleted)
+Ways to call it               0         (the old signature is removed, not kept)
+Silently swappable arguments −3         (three same-typed booleans stop being positional)
+```
 
-| Comportamiento | Test | Mock |
+**4. Where it belongs.** `TestOptions` belongs beside `Test`, in `gotest.go`.
+No new package.
+
+**5. What it deletes.** The five-parameter signature and the explanatory comment
+at `go_handler.go:284`.
+
+**Why now.** Three call sites, all inside this repository, no external users. The
+cost of this change never gets lower than it is today, and a published tag
+freezes the signature.
+
+## Stage 1 — the type and the signature
+
+In `gotest.go`, above `Test`:
+
+```go
+// TestOptions configures a test run. The zero value runs the full suite with
+// the race detector, the default timeout, and the build cache enabled.
+type TestOptions struct {
+    Args     []string // extra `go test` arguments; nil or empty = full suite
+    SkipRace bool     // omit -race
+    Timeout  int      // seconds; 0 = the package default
+    NoCache  bool     // add -count=1
+    RunAll   bool     // include the packages normally skipped
+}
+
+func (g *Go) Test(opts TestOptions) (string, error)
+```
+
+The body is unchanged except that it reads the fields instead of the parameters.
+The unexported helpers (`runFullTestSuite`, `runCustomTests`) keep their current
+signatures — they are internal and out of scope.
+
+Do **not** keep the old signature under another name, and do not add a
+`TestLegacy` wrapper.
+
+## Stage 2 — the three call sites
+
+| File | Was | Becomes |
 |---|---|---|
-| Leer estado del frontmatter | `TestPlanState_ReadFrontmatter` | temp file |
-| Escribir estado preservando el cuerpo | `TestPlanState_WritePreservesBody` | temp file |
-| `STATUS` derivado cuando falta | `TestPlanState_StatusDerivation` | temp file |
-| Token: env → keyring, mismo nombre | `TestAuth_EnvVarThenKeyring` | keyring/env falsos |
-| Parseo `--ci <phase>` / flags init | `TestParseArgs_CIPhases`, `TestParseArgs_InitFlags` | — |
-| dispatch → running | `TestCI_Dispatch_WritesRunning` | driver + Runner |
-| running → reviewing (REVIEWER set) | `TestCI_PROpened_DispatchesReviewer` | driver + Runner |
-| running → review (REVIEWER none) | `TestCI_PROpened_NoReviewer` | Runner |
-| reviewing → review (APPROVED) | `TestCI_Verdict_Approved` | Runner (reviews json) |
-| reviewing → running (CHANGES_REQUESTED, ROUND++) | `TestCI_Verdict_ChangesRequested_RoundInc` | driver + Runner |
-| reviewing → review (ROUND > 3) | `TestCI_Verdict_RoundCap` | Runner |
-| review → publicado (tag-only, borra plan) | `TestCI_Publish_TagOnly` | mock Publisher |
-| publish no-op si falta el plan | `TestCI_Publish_NoopWhenNoPlan` | mock Publisher |
-| `--init-action` crea/idempotente/`--force` | `TestInitAction_CreatesWhenAbsent`, `_Idempotent`, `_ForceOverwrites` | temp dir |
-| Registro de secret repo y `--org` | `TestInitAction_SecretScope` | mock SecretRunner |
-| Contrato del workflow embebido | `TestActionTemplate_Contract` | string embebido |
+| `go_handler.go:284` | `g.Test([]string{}, skipRace, 0, false, false)` plus its decoder comment | `g.Test(TestOptions{SkipRace: skipRace})` — **delete the comment** |
+| `gotest_mcp.go:84` | `p.g.Test(nil, false, 0, false, false)` | `p.g.Test(TestOptions{})` |
+| `gotest_mcp.go:86` | `p.g.Test([]string{"-run", args.Run}, false, 0, false, false)` | `p.g.Test(TestOptions{Args: []string{"-run", args.Run}})` |
 
-## 6. Criterios de aceptación (Definition of Done)
+Also update `cmd/gotest/main.go` if it builds the arguments itself: it must
+construct a `TestOptions` and pass it, keeping `cmd/` thin.
 
-1. `gotest` verde (vet, tests, race) en todo el repo.
-2. Todas las pruebas de §5 existen y pasan; se escribieron antes que su código.
-3. **Cero** referencias en código a: `CODEJOB` en `.env`, `CODEJOB_PR`,
-   `CHECK_PLAN`, `jules_api_key`, `github_pat`, `github_token`.
-4. `codejob --init-action` genera un `.github/workflows/codejob.yml` que satisface
-   `TestActionTemplate_Contract` (guard `merged==true` + gates por `STATUS`).
-5. El comportamiento coincide con `docs/CODEJOB.md` y `docs/diagrams/CODEJOB_FLOW.md`.
+## Constraints
 
-## 7. Fuera de alcance
+- **Thin `cmd/`.** `cmd/gotest/main.go` parses flags into a `TestOptions` and
+  calls the library. No conditional logic beyond that mapping.
+- **No hardcoded strings.** Any repeated flag string (`-run`, `-count=1`) is a
+  named constant in the package.
+- This repository is backend tooling: the standard library is legitimate. Do not
+  "fix" stdlib imports.
 
-- `gorelease` en CI (binarios cross-platform): el cierre es tag-only.
-- Re-dispatch nativo por comentario (Jules reaccionando solo): la corrección la
-  orquesta codejob.
-- Cadena de varios revisores (v1 = un `REVIEWER`).
-- Cascade a módulos dependientes en CI (queda al flujo local).
+## Tests
+
+Extend the existing `gotest` tests:
+
+1. `TestOptions{}` → the command built includes `-race` and no `-count=1`.
+2. `TestOptions{SkipRace: true}` → no `-race`.
+3. `TestOptions{NoCache: true}` → includes `-count=1`.
+4. `TestOptions{Timeout: 90}` → the timeout reaches the built command.
+5. `TestOptions{Args: []string{"-run", "TestX"}}` → takes the custom path.
+
+If the command construction is not currently reachable without executing the
+toolchain, extract it into an unexported pure function that returns the argument
+slice, and test that. Do not add a test that shells out to `go test`.
+
+## Acceptance criteria
+
+1. `grep -rn "Test(\[\]string{}\|Test(nil, false" --include='*.go' .` → empty.
+2. `grep -n "Empty slice = full test suite" go_handler.go` → empty.
+3. `go build ./... && go vet ./... && go test ./...` → clean.
+
+## Stages
+
+| # | Stage | File(s) | Gate |
+|---|---|---|---|
+| 1 | `TestOptions` + signature | `gotest.go` | compiles |
+| 2 | call sites + comment deletion | `go_handler.go`, `gotest_mcp.go`, `cmd/gotest/main.go` | criteria 1, 2 |
+| 3 | tests | `gotest_*_test.go` | criterion 3 |
+
+Sequential.
+
+## Out of scope
+
+This repository holds seven unrelated concerns in one package — badges,
+codejob, devbackup, goinstall, gonew, gopush, gotest — which is why the
+`webtyp` binary links GitHub badge rendering and Jules dispatch. Splitting it is
+a separate decision and a separate plan. Do not start it here.

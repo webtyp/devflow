@@ -281,7 +281,7 @@ func (g *Go) Push(message, tag string, skipTests, skipRace, skipDependents, skip
 
 	// 2. Run tests (if not skipped)
 	if !skipTests {
-		testSummary, err := g.Test([]string{}, skipRace, 0, false, false) // Empty slice = full test suite, 0 = default timeout, false = allow cache, false = runAll
+		testSummary, err := g.Test(TestOptions{SkipRace: skipRace})
 		if err != nil {
 			return gitmod.PushResult{}, fmt.Errorf("tests failed: %w", err)
 		}

@@ -22,9 +22,25 @@ var semverTagRe = regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
 // launching a real nested go test subprocess (e.g. from Release→Push→Test).
 var GoTestCmdFn = testCommand
 
-// Test executes the test suite for the project.
-// timeoutSec sets the per-package timeout in seconds (0 = default 30s).
-func (g *Go) Test(customArgs []string, skipRace bool, timeoutSec int, noCache bool, runAll bool) (string, error) {
+// TestOptions configures a test run. The zero value runs the full suite with
+// the race detector, the default timeout, and the build cache enabled.
+type TestOptions struct {
+	Args     []string // extra `go test` arguments; nil or empty = full suite
+	SkipRace bool     // omit -race
+	Timeout  int      // seconds; 0 = the package default
+	NoCache  bool     // add -count=1
+	RunAll   bool     // include the packages normally skipped
+}
+
+// Test executes the test suite for the project. The zero TestOptions runs the
+// full suite with -race, the default timeout, and the build cache enabled.
+func (g *Go) Test(opts TestOptions) (string, error) {
+	customArgs := opts.Args
+	skipRace := opts.SkipRace
+	timeoutSec := opts.Timeout
+	noCache := opts.NoCache
+	runAll := opts.RunAll
+
 	if timeoutSec <= 0 {
 		timeoutSec = 30
 	}

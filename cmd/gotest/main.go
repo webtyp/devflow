@@ -85,7 +85,12 @@ func main() {
 
 	goHandler.UseTinygo(useTinygo)
 
-	summary, err := goHandler.Test(customArgs, false, timeoutSec, noCache, runAll)
+	summary, err := goHandler.Test(devflow.TestOptions{
+		Args:    customArgs,
+		Timeout: timeoutSec,
+		NoCache: noCache,
+		RunAll:  runAll,
+	})
 	if err != nil {
 		fmt.Println("Tests failed:", err)
 		os.Exit(1)

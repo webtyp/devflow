@@ -81,9 +81,9 @@ func (p *GoTestProvider) execute(_ *context.Context, req mcp.Request) (*mcp.Resu
 	var err error
 
 	if args.Run == "" {
-		summary, err = p.g.Test(nil, false, 0, false, false)
+		summary, err = p.g.Test(TestOptions{})
 	} else {
-		summary, err = p.g.Test([]string{"-run", args.Run}, false, 0, false, false)
+		summary, err = p.g.Test(TestOptions{Args: []string{"-run", args.Run}})
 	}
 
 	text := summary
