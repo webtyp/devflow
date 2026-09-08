@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	webtyp.com/await v0.1.1 // indirect
+	webtyp.com/await v0.1.2 // indirect
 	webtyp.com/base64 v0.0.6 // indirect
 	webtyp.com/dbus v0.1.1 // indirect
 	webtyp.com/fetch v0.1.28 // indirect
