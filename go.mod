@@ -10,7 +10,7 @@ require (
 	webtyp.com/gorun v0.0.26
 	webtyp.com/keyring v0.2.4
 	webtyp.com/markdown v0.0.3
-	webtyp.com/mcp v0.2.24
+	webtyp.com/mcp v0.2.25
 	webtyp.com/model v0.1.9
 )
 
