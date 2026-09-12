@@ -241,10 +241,16 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 	testErr = testCmd.Run()
 
 	// Run tests in submodule directories (own go.mod — not reached by ./...)
-	// Pass -coverpkg pointing to the parent module so coverage reflects the actual code under test.
+	// Pass -coverpkg pointing to the parent module so coverage reflects the actual code under test,
+	// and -coverprofile so the result survives as data. Without the profile the submodule's
+	// coverage exists only as text in the log, the reported number comes from the root profile
+	// alone, and a repo that keeps its suite in tests/ reports a fraction of its real coverage.
 	covPkgFlag := fmt.Sprintf("-coverpkg=%s/...", moduleName)
-	for _, subDir := range findSubModuleDirs(g.rootDir) {
-		subArgs := []string{"test", "-v", "-cover", covPkgFlag, "-count=1", timeoutFlag, "./..."}
+	var subProfiles []string
+	for i, subDir := range findSubModuleDirs(g.rootDir) {
+		subProfile := fmt.Sprintf("%s/cover-sub%d.out", tmpCovDir, i)
+		subProfiles = append(subProfiles, subProfile)
+		subArgs := []string{"test", "-v", "-cover", covPkgFlag, fmt.Sprintf("-coverprofile=%s", subProfile), "-count=1", timeoutFlag, "./..."}
 		if !skipRace {
 			subArgs = append([]string{"test", "-race"}, subArgs[1:]...)
 		}
@@ -305,9 +311,18 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 		}
 	}
 
-	// Process coverage results from the profile generated during the test run above
+	// Process coverage results from the profiles generated during the test runs above.
+	// The submodule profiles are merged in: their tests exercise this module's code, so
+	// leaving them out reports only what the root packages' own tests covered.
 	if stdTestsRan {
-		if cov := exactCoverageFromProfile(coverProfilePath); cov != "" && cov != "0" && cov != "0.0" {
+		profilePath := coverProfilePath
+		if len(subProfiles) > 0 {
+			merged := fmt.Sprintf("%s/cover-merged.out", tmpCovDir)
+			if mergeCoverProfiles(merged, append([]string{coverProfilePath}, subProfiles...)...) {
+				profilePath = merged
+			}
+		}
+		if cov := exactCoverageFromProfile(profilePath); cov != "" && cov != "0" && cov != "0.0" {
 			coveragePercent = cov
 		} else {
 			coveragePercent = calculateAverageCoverage(testOutput)
@@ -905,6 +920,81 @@ func calculateAverageCoverage(output string) string {
 }
 
 // exactCoverageFromProfile reads a coverage profile and returns the total percentage.
+// mergeCoverProfiles combines Go coverage profiles into dst and reports whether
+// anything was written. Missing or empty sources are skipped, so a run with no
+// submodules simply yields the root profile.
+//
+// Repeated blocks are COMBINED, not appended. A submodule run carries
+// -coverpkg over the parent, so it reports the very same blocks the root run
+// does; concatenating them would feed `go tool cover` each statement twice and
+// halve the reported percentage.
+func mergeCoverProfiles(dst string, srcs ...string) bool {
+	type block struct {
+		stmts string
+		count int64
+	}
+	var mode string
+	var order []string
+	blocks := make(map[string]block)
+
+	for _, src := range srcs {
+		data, err := os.ReadFile(src)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			if after, ok := strings.CutPrefix(line, "mode:"); ok {
+				if mode == "" {
+					mode = strings.TrimSpace(after)
+				}
+				continue
+			}
+			// "<file>:<startLine>.<col>,<endLine>.<col> <numStmts> <count>"
+			fields := strings.Fields(line)
+			if len(fields) != 3 {
+				continue
+			}
+			key := fields[0]
+			count, err := strconv.ParseInt(fields[2], 10, 64)
+			if err != nil {
+				continue
+			}
+			prev, seen := blocks[key]
+			if !seen {
+				order = append(order, key)
+				blocks[key] = block{stmts: fields[1], count: count}
+				continue
+			}
+			// "set" records presence (0/1), so combining is a max; "count" and
+			// "atomic" record hits, so combining is a sum.
+			if mode == "set" {
+				if count > prev.count {
+					prev.count = count
+				}
+			} else {
+				prev.count += count
+			}
+			blocks[key] = prev
+		}
+	}
+
+	if mode == "" || len(order) == 0 {
+		return false
+	}
+
+	var b strings.Builder
+	b.WriteString("mode: " + mode + "\n")
+	for _, key := range order {
+		blk := blocks[key]
+		b.WriteString(fmt.Sprintf("%s %s %d\n", key, blk.stmts, blk.count))
+	}
+	return os.WriteFile(dst, []byte(b.String()), 0o644) == nil
+}
+
 func exactCoverageFromProfile(profilePath string) string {
 	out, err := command.Exec("go", "tool", "cover", fmt.Sprintf("-func=%s", profilePath)).CombinedOutput()
 	if err != nil {
