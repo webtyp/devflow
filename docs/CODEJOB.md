@@ -69,7 +69,23 @@ go install webtyp.com/devflow/cmd/codejob@latest
 
 # Dispatch / advance: runs the phase implied by the current STATUS.
 codejob
+```
 
+`codejob` with no arguments **always runs from, and against, the local repo
+you are standing in** — the one you dispatched from. There is nothing else to
+set up:
+
+- `STATUS: dispatch` → sends `docs/PLAN.md` to the `EXECUTOR`, `STATUS` → `running`.
+- `STATUS: running`, no PR yet → reports the agent is still working.
+- `STATUS: running`, PR ready → **checks out the PR branch in this same local
+  clone**, `STATUS` → `review` (or `reviewing` if a `REVIEWER` is set).
+
+Never `gh repo clone` the repo elsewhere or `gh pr checkout` by hand to inspect
+a plan's PR — codejob already tracks it and pulls it into the repo you are in.
+Cloning a second copy just to look at a diff codejob would hand you for free is
+the anti-pattern this section exists to head off.
+
+```bash
 # Close the loop with an explicit message/tag override (optional).
 codejob 'feat: implemented feature'
 codejob 'feat: implemented feature' v0.3.0

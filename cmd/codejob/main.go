@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	gitmod "webtyp.com/git"
 	"os"
 	"strings"
+	gitmod "webtyp.com/git"
 
 	"webtyp.com/devflow"
 	"webtyp.com/gorelease"
@@ -139,13 +139,19 @@ func showHelp() {
 	fmt.Println("\nWorkflow:")
 	fmt.Printf("  1. DISPATCH: Create %s and run 'codejob' to start a new task.\n", devflow.DefaultIssuePromptPath)
 	fmt.Println("               STATUS: dispatch is written to the PLAN.md frontmatter.")
-	fmt.Println("  2. REVIEW:   Once the agent opens a PR, STATUS moves to review (or")
-	fmt.Println("               reviewing if a REVIEWER is set) and codejob switches to the")
-	fmt.Println("               PR branch for local inspection.")
+	fmt.Println("  2. REVIEW:   Run bare 'codejob' again (no args) from THIS SAME local repo —")
+	fmt.Println("               do not clone the repo elsewhere or 'gh pr checkout' by hand.")
+	fmt.Println("               Once the agent's PR is ready, that bare call is what moves")
+	fmt.Println("               STATUS to review (or reviewing if a REVIEWER is set) and")
+	fmt.Println("               checks out the PR branch IN PLACE for local inspection.")
 	fmt.Println("  3. RESOLVE:")
 	fmt.Println("     - APPROVE: Run 'codejob \"message\" [tag]' to merge the PR and publish;")
 	fmt.Println("                docs/PLAN.md is deleted once published.")
 	fmt.Println("     - ITERATE: If adjustments are needed, create a new docs/PLAN.md and run")
 	fmt.Println("                'codejob'. The old PR is merged first, then the new plan is")
 	fmt.Println("                dispatched.")
+	fmt.Println("\nNote: every step above runs from the SAME local clone you dispatched from.")
+	fmt.Println("codejob tracks state in that repo's docs/PLAN.md and checks out branches in")
+	fmt.Println("place — there is never a reason to 'gh repo clone' or 'gh pr checkout' a repo")
+	fmt.Println("codejob already manages.")
 }
