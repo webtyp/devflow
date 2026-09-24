@@ -2,8 +2,9 @@
 PLAN: "fix(gopush): los dependientes se buscan desde la raíz del workspace, no solo en la carpeta padre"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 9312558786189124501
+PR: https://github.com/webtyp/devflow/pull/44
 ---
 
 > Este plan se despacha con el flujo CodeJob. Ver skill: agents-workflow.

@@ -80,7 +80,7 @@ Flags:
 	goHandler.SetSumDBClient(&gitmod.HTTPSumDB{})
 
 	// Run Push with parsed options
-	summary, err := goHandler.Push(message, tag, false, skipRace, noCascade, false, false, false, "..")
+	summary, err := goHandler.Push(message, tag, false, skipRace, noCascade, false, false, false, "")
 	if err != nil {
 		fmt.Println("Push failed:", err)
 		os.Exit(1)

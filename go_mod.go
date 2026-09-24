@@ -644,6 +644,13 @@ func (g *Go) FindDependentModules(modulePath, searchPath string) ([]string, erro
 			return nil // Continue despite errors
 		}
 
+		if info.IsDir() {
+			if skipWalkDir(path, searchPath, info) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
 		// Only go.mod files
 		if info.Name() != "go.mod" {
 			return nil
