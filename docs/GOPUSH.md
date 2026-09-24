@@ -31,7 +31,7 @@ gopush 'commit message' [tag]
 5. Creates/uses tag
 6. Intelligent push: Pushes to remote (auto-pulls/rebases if remote is ahead).
 6. Automatically installs binaries with version tag (if `cmd/` exists)
-7. Finds dependent modules in search path
+7. Finds dependent modules in search path (default: outermost workspace root containing `*.code-workspace`, or `..` when there is none)
 8. For each dependent (in parallel):
    - **Guard check**: If the dependent has an active `CODEJOB` session, it is **skipped** (the repo is NOT touched at all: no `go.mod` write, no `go get`, no tests). If it has local `replace`s for OTHER modules (unrelated to the ones just published), the bump still lands: `go.mod`/`go.sum` are updated, tested and committed, but **without a tag** and without propagating to further dependents (deps-only) — replaces on unrelated modules are left untouched.
    - If up-to-date and no `replace` to remove, it is **skipped** (repo untouched).

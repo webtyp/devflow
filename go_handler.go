@@ -215,7 +215,7 @@ const ErrPushBlockedActiveCodejob = "gopush blocked: active codejob session (COD
 //	skipDependents: If true, skips updating dependent modules
 //	skipBackup: If true, skips backup
 //	skipTag: If true, skips tag generation and pushes without tags
-//	searchPath: Path to search for dependent modules (default: "..")
+//	searchPath: Path to search for dependent modules (default: the workspace root — see WorkspaceRoot — or ".." when there is none)
 func (g *Go) Push(message, tag string, skipTests, skipRace, skipDependents, skipBackup, skipTag, skipVerify bool, searchPath string) (gitmod.PushResult, error) {
 	// Validate message
 	if err := gitmod.ValidateCommitMessage(message); err != nil {
@@ -231,7 +231,10 @@ func (g *Go) Push(message, tag string, skipTests, skipRace, skipDependents, skip
 	}
 
 	if searchPath == "" {
-		searchPath = ".."
+		searchPath = WorkspaceRoot(g.rootDir)
+		if searchPath == "" {
+			searchPath = ".."
+		}
 	}
 
 	summary := []string{}
@@ -393,7 +396,7 @@ func (g *Go) Push(message, tag string, skipTests, skipRace, skipDependents, skip
 
 // Publish satisfies the Publisher interface
 func (g *Go) Publish(message, tag string, skipTests, skipRace, skipDependents, skipBackup, skipTag, skipVerify bool) (gitmod.PushResult, error) {
-	return g.Push(message, tag, skipTests, skipRace, skipDependents, skipBackup, skipTag, skipVerify, "..")
+	return g.Push(message, tag, skipTests, skipRace, skipDependents, skipBackup, skipTag, skipVerify, "")
 }
 
 // UpdateDependentModule updates a dependent module and optionally pushes it

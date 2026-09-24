@@ -290,7 +290,13 @@ func (g *Go) findAllModules(searchPath string) (map[string]string, error) {
 		if err != nil {
 			return nil // Skip errors
 		}
-		if !info.IsDir() && info.Name() == "go.mod" {
+		if info.IsDir() {
+			if skipWalkDir(path, searchPath, info) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if info.Name() == "go.mod" {
 			dir := filepath.Dir(path)
 			// Avoid including the current rootDir if it's inside searchPath
 			absDir, _ := filepath.Abs(dir)
