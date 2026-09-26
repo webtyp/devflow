@@ -57,6 +57,7 @@ gotest -bench .     # Run benchmarks
 23. Runs `go test -race -cover ./...` (stdlib tests)
 4. **Exact weighted coverage** using profile merging (`go tool cover`) across all packages.
 5. Auto-detects and runs WASM tests in a real browser (`wasmbrowsertest`). Detection is by **build tag, not filename**: the WASM suite activates when a package has a test file present in the `GOOS=js GOARCH=wasm` build but absent from the native build — i.e., gated by `//go:build wasm`. The filename is irrelevant.
+Submodules (a subdirectory with its own `go.mod`, e.g. `tests/`) get the same treatment: native tests **and** their own WASM detection and run. A WASM failure in a submodule is reported with its path: `wasm tests ❌`. So `gotest` gives the same verdict at the repo root as inside the submodule.
 6. Detects slowest test (if > 2.0s)
 7. Detects WASM released function calls
 8. Updates README badges

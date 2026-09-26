@@ -523,7 +523,11 @@ func (g *Go) UpdateDependentModule(depDir string, bumps []gitmod.DepBump, rootCa
 	// 6. gotest (gate)
 	if output, err := command.RunInDir(depDir, "gotest", "-t", "60", "-no-cache"); err != nil {
 		cause := extractFirstFailure(output)
-		g.consoleOutput(fmt.Sprintf("📦 %s → %s ❌", depName, cause))
+		line := fmt.Sprintf("📦 %s → %s ❌", depName, cause)
+		if p := writeGateLog(depName, output); p != "" {
+			line += fmt.Sprintf(" (log: %s)", p)
+		}
+		g.consoleOutput(line)
 		return CascadeOutcome{}, fmt.Errorf("tests failed: %w", err)
 	}
 
@@ -581,18 +585,47 @@ func (g *Go) GetCurrentVersion(moduleDir, dependencyPath string) (string, error)
 	return mod.Version, nil
 }
 
+const (
+	gateLogPrefix = "gopush-gate-"
+	gateLogSuffix = ".log"
+)
+
+// writeGateLog saves the full gate output so a failed cascade entry is
+// actionable; it returns the path, or "" if the write failed.
+func writeGateLog(depName, output string) string {
+	fileName := gateLogPrefix + strings.ReplaceAll(depName, "/", "-") + gateLogSuffix
+	p := filepath.Join(os.TempDir(), fileName)
+	if err := os.WriteFile(p, []byte(output), 0o644); err != nil {
+		return ""
+	}
+	return p
+}
+
 // extractFirstFailure returns a short failure label from gotest output
 func extractFirstFailure(output string) string {
-	if strings.Contains(output, "vet ❌") {
-		return "vet"
+	var kept []string
+	seen := make(map[string]bool)
+
+	for _, line := range strings.Split(output, "\n") {
+		if !strings.Contains(line, "❌") {
+			continue
+		}
+		line = strings.TrimPrefix(line, "Tests failed: ")
+		for _, seg := range strings.Split(line, ", ") {
+			if idx := strings.Index(seg, " ❌"); idx != -1 {
+				stage := seg[:idx]
+				if !seen[stage] {
+					seen[stage] = true
+					kept = append(kept, stage)
+				}
+			}
+		}
 	}
-	if strings.Contains(output, "timeout:") {
-		return "timeout"
+
+	if len(kept) == 0 {
+		return "failed"
 	}
-	if strings.Contains(output, "❌") {
-		return "tests"
-	}
-	return "failed"
+	return strings.Join(kept, ", ")
 }
 
 // listCmdDirs returns the names of the subdirectories in cmd/.
