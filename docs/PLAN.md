@@ -2,8 +2,9 @@
 PLAN: "fix(gotest): submodules run their WASM suite too; gopush cascade reports the real failing stage and keeps the log"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 18113231280357664585
+PR: https://github.com/webtyp/devflow/pull/45
 ---
 
 > This plan is dispatched via the CodeJob workflow. See skill: agents-workflow.
@@ -242,7 +243,22 @@ Acceptance: `grep -n 'strings.Contains(output, "❌")' go_handler.go` → empty.
 
 ## Stage 4 — tests (`test/`)
 
-New file `test/gotest_submodule_wasm_test.go`, package `devflow_test`.
+New file `test/gotest_wasm_submodule_test.go`, package `devflow_test`.
+
+> **Naming pitfall (found in review):** do NOT name it `..._submodule_wasm_test.go`.
+> Go's build system treats a trailing `_wasm` segment (before `_test.go`) as an
+> implicit `GOARCH=wasm` constraint on the *file itself*, regardless of any
+> `//go:build` tag inside it. Two consequences, both silent: (1) the file is
+> excluded from every native `go test` / `go vet` run, so `TestSubmoduleWasmSuiteIsRun`
+> never executes and Stage 4's "gotest green" acceptance passes without ever
+> checking it; (2) when `gotest` itself later cross-compiles `./test/...` for its
+> own root-level WASM run, this now-wasm-only file makes the whole blackbox
+> `test/` package look like it "has WASM tests", so `gotest` tries to compile and
+> run the entire package (which imports `os/exec`, shells out to `git`/`go`, etc.)
+> under `GOOS=js GOARCH=wasm`, where subprocess exec is unsupported — every test
+> in `test/` fails with `"<cmd>": executable file not found in $PATH`, and one
+> test panics on a nil `*Go` from a `NewGo` that silently failed. Keep `wasm`
+> out of the last underscore-separated segment before `_test.go`.
 
 1. **Fixture** `submoduleWithWasmSuite(t) string`: a `t.TempDir()` with
    - `go.mod`: `module example.com/fx` + `go 1.25.2`
@@ -317,5 +333,5 @@ Run `gotest`: everything green.
 | 1 | `wasmEnabledIn(dir, runAll)`; `wasmTestPackages(dir, runAll)` | `gotest.go` |
 | 2 | `runWasmIn` + per-directory WASM loop in both suites; drop the dead comment block | `gotest.go` |
 | 3 | `extractFirstFailure` names every failing stage; `writeGateLog`; gate line with log path | `go_handler.go` |
-| 4 | Fixture + 3 tests; `gotest` green | `test/gotest_submodule_wasm_test.go`, `extract_failure_test.go` |
+| 4 | Fixture + 3 tests; `gotest` green | `test/gotest_wasm_submodule_test.go`, `extract_failure_test.go` |
 | 5 | Document submodule WASM + gate log | `docs/GOTEST.md`, `docs/GOPUSH.md` |

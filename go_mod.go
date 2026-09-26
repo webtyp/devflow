@@ -3,14 +3,15 @@ package devflow
 import (
 	"bufio"
 	"fmt"
-	"webtyp.com/command"
-	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 )
 
 // GoModHandler represents a parsed go.mod file and handles file events
@@ -463,6 +464,9 @@ func (g *Go) GetModulePath() (string, error) {
 		if strings.HasPrefix(line, "module ") {
 			return strings.TrimSpace(strings.TrimPrefix(line, "module")), nil
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
 	}
 
 	return "", fmt.Errorf("module directive not found in go.mod")
