@@ -119,33 +119,7 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 	// Check for WASM test files (async)
 	go func() {
 		defer wg1.Done()
-		// Check for WASM test files
-		// We do NOT return early for runAll anymore, we scan to see if actual WASM files exist.
-
-		// 1. Get native test files
-		nativeArgs := []string{"list", "-f", "{{.ImportPath}} {{.TestGoFiles}} {{.XTestGoFiles}}"}
-		if runAll {
-			nativeArgs = append(nativeArgs, "-tags=integration")
-		}
-		nativeArgs = append(nativeArgs, "./...")
-		nativeCmd := exec.Command("go", nativeArgs...)
-		nativeCmd.Dir = g.rootDir
-		nativeOut, _ := nativeCmd.CombinedOutput()
-
-		// 2. Get WASM test files
-		wasmArgs := []string{"list", "-f", "{{.ImportPath}} {{.TestGoFiles}} {{.XTestGoFiles}}"}
-		if runAll {
-			wasmArgs = append(wasmArgs, "-tags=integration")
-		}
-		wasmArgs = append(wasmArgs, "./...")
-		wasmCmd := exec.Command("go", wasmArgs...)
-		wasmCmd.Dir = g.rootDir
-		wasmCmd.Env = os.Environ()
-		wasmCmd.Env = append(wasmCmd.Env, "GOOS=js", "GOARCH=wasm")
-		wasmOut, _ := wasmCmd.CombinedOutput()
-
-		// 3. Decision logic
-		enableWasmTests = ShouldEnableWasm(string(nativeOut), string(wasmOut))
+		enableWasmTests = g.wasmEnabledIn(g.rootDir, runAll)
 	}()
 
 	wg1.Wait()
@@ -330,95 +304,63 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 	}
 
 	// WASM Tests
-	var wasmTestOutput string
+	var wasmDirs []string
 	if enableWasmTests {
+		wasmDirs = append(wasmDirs, g.rootDir)
+	}
+	for _, subDir := range findSubModuleDirs(g.rootDir) {
+		if g.wasmEnabledIn(subDir, runAll) {
+			wasmDirs = append(wasmDirs, subDir)
+		}
+	}
 
+	var wasmTestOutput string
+	if len(wasmDirs) > 0 {
 		if err := g.installWasmBrowserTest(); err != nil {
-
 			addMsg(false, "WASM tests skipped (setup failed)")
 		} else {
-			execArg := g.wasmExecArg()
-			// Add -count=1 to force cache bypass for WASM tests, consistent with native run
-			testArgs := []string{"test", "-exec", execArg, "-v", "-cover", "-coverpkg=./...", "-count=1"}
-			testArgs = append(testArgs, g.wasmTestPackages(runAll)...)
+			covPkgFlag := fmt.Sprintf("-coverpkg=%s/...", moduleName)
+			var anyWasmFailed bool
+			for _, dir := range wasmDirs {
+				coverPkg := "./..."
+				if dir != g.rootDir {
+					coverPkg = covPkgFlag
+				}
+				res := g.runWasmIn(dir, coverPkg, runAll, timeoutSec)
+				wasmTestOutput += res.output + "\n"
 
-			// Add cushion for WASM tests too
-			wasmCtx, wasmCancel := context.WithTimeout(context.Background(), g.wasmTimeout(timeoutSec))
-			defer wasmCancel()
-			wasmCmd := GoTestCmdFn(wasmCtx, g.rootDir, "go", testArgs...)
-			wasmCmd.Env = os.Environ()
-			wasmCmd.Env = append(wasmCmd.Env, "GOOS=js", "GOARCH=wasm")
+				rel, _ := filepath.Rel(g.rootDir, dir)
+				rel = filepath.ToSlash(rel)
 
-			var wasmOut bytes.Buffer
-
-			wasmFilter := NewConsoleFilter(g.consoleOutput)
-			wasmPipe := &paramWriter{
-				write: func(p []byte) (n int, err error) {
-					s := string(p)
-					wasmOut.Write(p)
-					wasmFilter.Add(s)
-					return len(p), nil
-				},
+				if len(res.timedOut) > 0 {
+					for _, entry := range res.timedOut {
+						addMsg(false, "timeout: "+entry)
+					}
+					testStatus = "Failed"
+					anyWasmFailed = true
+				} else if res.failed {
+					if dir == g.rootDir {
+						addMsg(false, "wasm")
+					} else {
+						addMsg(false, "wasm "+rel)
+					}
+					testStatus = "Failed"
+					anyWasmFailed = true
+				} else {
+					if res.coverage != "0" && res.coverage != "" {
+						wVal, _ := strconv.ParseFloat(res.coverage, 64)
+						nVal, _ := strconv.ParseFloat(coveragePercent, 64)
+						if wVal > nVal {
+							coveragePercent = res.coverage
+						}
+					}
+				}
 			}
 
-			wasmCmd.Stdout = wasmPipe
-			wasmCmd.Stderr = wasmPipe
-
-			err := wasmCmd.Run()
-			wasmFilter.Flush()
-
-			wOutput := wasmOut.String()
-			wasmTestOutput = wOutput
-
-			// Detect process-level timeout for WASM tests
-			if wasmCtx.Err() == context.DeadlineExceeded {
-				timedOut := FindTimedOutTests(wOutput)
-				if len(timedOut) == 0 {
-					// wasmbrowsertest buffers output: retry individually to find culprit
-					timedOut = g.findWasmTimeoutCulprit(timeoutSec)
-				}
-				if len(timedOut) > 0 {
-					for _, name := range timedOut {
-						addMsg(false, fmt.Sprintf("timeout: %s (exceeded %ds)", name, timeoutSec))
-					}
-				} else {
-					addMsg(false, fmt.Sprintf("timeout: wasm tests exceeded %ds", timeoutSec))
-				}
-				testStatus = "Failed"
-			} else if err != nil {
-				// WASM test failure - ConsoleFilter already filtered the output in quiet mode
-				addMsg(false, "wasm")
-				testStatus = "Failed"
-			} else {
+			if !anyWasmFailed {
 				addMsg(true, "wasm")
 				if testStatus != "Failed" {
 					testStatus = "Passing"
-				}
-				wCov := calculateAverageCoverage(wOutput)
-
-				// Try exact coverage for WASM if possible (might need special handling for WASM env)
-				// WASM tests are tricky because we use -exec wasmbrowsertest.
-				// getExactCoverage can support it if we pass correct args.
-				// But getExactCoverage implementation uses 'go test' which should respect GOOS/GOARCH from env.
-				// Let's rely on calculateAverageCoverage for WASM for now unless we update getExactCoverage to support WASM env injection passed from here.
-				// Actually, we can try getExactCoverage but we need to set Env.
-				// For now, let's stick to parsing for WASM as it seems reliable (89.0 vs 89.0 from manual run was parsed correctly from go tool cover output in manual run)
-				// Wait, manual run output "total: ... 89.0%".
-				// The parsed output of `go test` usually doesn't show "total:" key unless using -coverprofile?
-				// The output we parse is "coverage: 80.5% of statements".
-				// So manual run showed 89.0% because I ran `go tool cover`.
-				// `gotest` parsing only sees what `go test` emits.
-				// If we want 89.0% here, we need getExactCoverage for WASM too.
-
-				// Let's stick to simple parsing for WASM for now to avoid complexity with wasmbrowsertest + profile generation multiple times.
-				// The user sees 76.7% vs 89% discrepancy mostly because Native tests were averaging 22 and 80.
-
-				if wCov != "0" {
-					wVal, _ := strconv.ParseFloat(wCov, 64)
-					nVal, _ := strconv.ParseFloat(coveragePercent, 64)
-					if wVal > nVal {
-						coveragePercent = wCov
-					}
 				}
 			}
 		}
@@ -492,30 +434,7 @@ func (g *Go) runCustomTests(customArgs []string, moduleName string, timeoutSec i
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		// Check for WASM test files by comparing native vs WASM test file lists
-		// if runAll is set, we still check existence but include integration tags in detection
-
-		nativeArgs := []string{"list", "-f", "{{.ImportPath}} {{.TestGoFiles}} {{.XTestGoFiles}}"}
-		if runAll {
-			nativeArgs = append(nativeArgs, "-tags=integration")
-		}
-		nativeArgs = append(nativeArgs, "./...")
-		nativeCmd := exec.Command("go", nativeArgs...)
-		nativeCmd.Dir = g.rootDir
-		nativeOut, _ := nativeCmd.CombinedOutput()
-
-		wasmArgs := []string{"list", "-f", "{{.ImportPath}} {{.TestGoFiles}} {{.XTestGoFiles}}"}
-		if runAll {
-			wasmArgs = append(wasmArgs, "-tags=integration")
-		}
-		wasmArgs = append(wasmArgs, "./...")
-		wasmCmd := exec.Command("go", wasmArgs...)
-		wasmCmd.Dir = g.rootDir
-		wasmCmd.Env = os.Environ()
-		wasmCmd.Env = append(wasmCmd.Env, "GOOS=js", "GOARCH=wasm")
-		wasmOut, _ := wasmCmd.CombinedOutput()
-
-		enableWasmTests = ShouldEnableWasm(string(nativeOut), string(wasmOut))
+		enableWasmTests = g.wasmEnabledIn(g.rootDir, runAll)
 	}()
 
 	// Inject timeout if user didn't already pass -timeout
@@ -667,7 +586,17 @@ func (g *Go) runCustomTests(customArgs []string, moduleName string, timeoutSec i
 	}
 
 	// Run WASM tests with same custom args (excluding -race)
+	var wasmCustomDirs []string
 	if enableWasmTests {
+		wasmCustomDirs = append(wasmCustomDirs, g.rootDir)
+	}
+	for _, subDir := range findSubModuleDirs(g.rootDir) {
+		if g.wasmEnabledIn(subDir, runAll) {
+			wasmCustomDirs = append(wasmCustomDirs, subDir)
+		}
+	}
+
+	if len(wasmCustomDirs) > 0 {
 		if err := g.installWasmBrowserTest(); err != nil {
 			addMsg(false, "WASM tests skipped (setup failed)")
 		} else {
@@ -702,56 +631,74 @@ func (g *Go) runCustomTests(customArgs []string, moduleName string, timeoutSec i
 			}
 			wasmTestArgs = append(wasmTestArgs, "./...")
 
-			wasmCtx, wasmCancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec+10)*time.Second)
-			defer wasmCancel()
-			wasmCmd := GoTestCmdFn(wasmCtx, g.rootDir, "go", wasmTestArgs...)
-			wasmCmd.Env = os.Environ()
-			wasmCmd.Env = append(wasmCmd.Env, "GOOS=js", "GOARCH=wasm")
+			var anyWasmFailed bool
+			for _, dir := range wasmCustomDirs {
+				rel, _ := filepath.Rel(g.rootDir, dir)
+				rel = filepath.ToSlash(rel)
 
-			var wasmOut bytes.Buffer
-			wasmFilter := NewConsoleFilter(g.consoleOutput)
-			wasmPipe := &paramWriter{
-				write: func(p []byte) (n int, err error) {
-					s := string(p)
-					wasmOut.Write(p)
-					wasmFilter.Add(s)
-					return len(p), nil
-				},
+				wasmCtx, wasmCancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec+10)*time.Second)
+				wasmCmd := GoTestCmdFn(wasmCtx, dir, "go", wasmTestArgs...)
+				wasmCmd.Env = os.Environ()
+				wasmCmd.Env = append(wasmCmd.Env, "GOOS=js", "GOARCH=wasm")
+
+				var wasmOut bytes.Buffer
+				wasmFilter := NewConsoleFilter(g.consoleOutput)
+				wasmPipe := &paramWriter{
+					write: func(p []byte) (n int, err error) {
+						s := string(p)
+						wasmOut.Write(p)
+						wasmFilter.Add(s)
+						return len(p), nil
+					},
+				}
+
+				wasmCmd.Stdout = wasmPipe
+				wasmCmd.Stderr = wasmPipe
+
+				err := wasmCmd.Run()
+				wasmFilter.Flush()
+
+				if wasmCtx.Err() == context.DeadlineExceeded {
+					wOutput := wasmOut.String()
+					timedOut := FindTimedOutTests(wOutput)
+					if dir == g.rootDir && len(timedOut) == 0 {
+						timedOut = g.findWasmTimeoutCulprit(timeoutSec)
+					}
+					if len(timedOut) > 0 {
+						for _, name := range timedOut {
+							addMsg(false, fmt.Sprintf("timeout: %s (exceeded %ds)", name, timeoutSec))
+						}
+					} else if dir == g.rootDir {
+						addMsg(false, fmt.Sprintf("timeout: wasm tests exceeded %ds", timeoutSec))
+					} else {
+						addMsg(false, fmt.Sprintf("timeout: wasm tests in %s exceeded %ds", rel, timeoutSec))
+					}
+					testStatus = "Failed"
+					anyWasmFailed = true
+				} else if err != nil {
+					if dir == g.rootDir {
+						addMsg(false, "wasm")
+					} else {
+						addMsg(false, "wasm "+rel)
+					}
+					testStatus = "Failed"
+					anyWasmFailed = true
+				} else {
+					wOutput := wasmOut.String()
+					wCov := calculateAverageCoverage(wOutput)
+					if wCov != "0" {
+						wVal, _ := strconv.ParseFloat(wCov, 64)
+						nVal, _ := strconv.ParseFloat(coveragePercent, 64)
+						if wVal > nVal {
+							coveragePercent = wCov
+						}
+					}
+				}
+				wasmCancel()
 			}
 
-			wasmCmd.Stdout = wasmPipe
-			wasmCmd.Stderr = wasmPipe
-
-			err := wasmCmd.Run()
-			wasmFilter.Flush()
-
-			if wasmCtx.Err() == context.DeadlineExceeded {
-				wOutput := wasmOut.String()
-				timedOut := FindTimedOutTests(wOutput)
-				if len(timedOut) == 0 {
-					timedOut = g.findWasmTimeoutCulprit(timeoutSec)
-				}
-				if len(timedOut) > 0 {
-					for _, name := range timedOut {
-						addMsg(false, fmt.Sprintf("timeout: %s (exceeded %ds)", name, timeoutSec))
-					}
-				} else {
-					addMsg(false, fmt.Sprintf("timeout: wasm tests exceeded %ds", timeoutSec))
-				}
-				testStatus = "Failed"
-			} else if err != nil {
-				addMsg(false, "wasm")
-				testStatus = "Failed"
-			} else {
-				wOutput := wasmOut.String()
-				wCov := calculateAverageCoverage(wOutput)
-				if wCov != "0" {
-					wVal, _ := strconv.ParseFloat(wCov, 64)
-					nVal, _ := strconv.ParseFloat(coveragePercent, 64)
-					if wVal > nVal {
-						coveragePercent = wCov
-					}
-				}
+			if !anyWasmFailed {
+				addMsg(true, "wasm")
 			}
 		}
 	}
@@ -1023,6 +970,98 @@ func (g *Go) installWasmBrowserTest() error {
 	return nil
 }
 
+type wasmRun struct {
+	output   string   // combined go test output
+	failed   bool
+	timedOut []string // test names, or one "wasm tests exceeded Ns" entry
+	coverage string   // calculateAverageCoverage(output), "0" if none
+}
+
+func (g *Go) runWasmIn(dir, coverPkg string, runAll bool, timeoutSec int) wasmRun {
+	execArg := g.wasmExecArg()
+	testArgs := []string{"test", "-exec", execArg, "-v", "-cover", "-coverpkg=" + coverPkg, "-count=1"}
+	testArgs = append(testArgs, g.wasmTestPackages(dir, runAll)...)
+
+	wasmCtx, wasmCancel := context.WithTimeout(context.Background(), g.wasmTimeout(timeoutSec))
+	defer wasmCancel()
+
+	wasmCmd := GoTestCmdFn(wasmCtx, dir, "go", testArgs...)
+	wasmCmd.Env = os.Environ()
+	wasmCmd.Env = append(wasmCmd.Env, "GOOS=js", "GOARCH=wasm")
+
+	var wasmOut bytes.Buffer
+	wasmFilter := NewConsoleFilter(g.consoleOutput)
+	wasmPipe := &paramWriter{
+		write: func(p []byte) (n int, err error) {
+			s := string(p)
+			wasmOut.Write(p)
+			wasmFilter.Add(s)
+			return len(p), nil
+		},
+	}
+
+	wasmCmd.Stdout = wasmPipe
+	wasmCmd.Stderr = wasmPipe
+
+	err := wasmCmd.Run()
+	wasmFilter.Flush()
+
+	wOutput := wasmOut.String()
+	res := wasmRun{output: wOutput}
+
+	if wasmCtx.Err() == context.DeadlineExceeded {
+		res.failed = true
+		if dir == g.rootDir {
+			timedOut := FindTimedOutTests(wOutput)
+			if len(timedOut) == 0 {
+				timedOut = g.findWasmTimeoutCulprit(timeoutSec)
+			}
+			if len(timedOut) > 0 {
+				for _, name := range timedOut {
+					res.timedOut = append(res.timedOut, fmt.Sprintf("%s (exceeded %ds)", name, timeoutSec))
+				}
+			} else {
+				res.timedOut = []string{fmt.Sprintf("wasm tests exceeded %ds", timeoutSec)}
+			}
+		} else {
+			rel, _ := filepath.Rel(g.rootDir, dir)
+			rel = filepath.ToSlash(rel)
+			res.timedOut = []string{fmt.Sprintf("wasm tests in %s exceeded %ds", rel, timeoutSec)}
+		}
+	} else if err != nil {
+		res.failed = true
+	} else {
+		res.coverage = calculateAverageCoverage(wOutput)
+	}
+
+	return res
+}
+
+// wasmEnabledIn reports whether dir has test files that only exist in the
+// js/wasm build — the same rule the root has always used.
+func (g *Go) wasmEnabledIn(dir string, runAll bool) bool {
+	nativeArgs := []string{"list", "-f", "{{.ImportPath}} {{.TestGoFiles}} {{.XTestGoFiles}}"}
+	if runAll {
+		nativeArgs = append(nativeArgs, "-tags=integration")
+	}
+	nativeArgs = append(nativeArgs, "./...")
+	nativeCmd := exec.Command("go", nativeArgs...)
+	nativeCmd.Dir = dir
+	nativeOut, _ := nativeCmd.CombinedOutput()
+
+	wasmArgs := []string{"list", "-f", "{{.ImportPath}} {{.TestGoFiles}} {{.XTestGoFiles}}"}
+	if runAll {
+		wasmArgs = append(wasmArgs, "-tags=integration")
+	}
+	wasmArgs = append(wasmArgs, "./...")
+	wasmCmd := exec.Command("go", wasmArgs...)
+	wasmCmd.Dir = dir
+	wasmCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+	wasmOut, _ := wasmCmd.CombinedOutput()
+
+	return ShouldEnableWasm(string(nativeOut), string(wasmOut))
+}
+
 // wasmTestPackages lists the packages whose tests can actually be built for js/wasm.
 //
 // It exists because `go test ./...` under GOOS=js is wrong for any repo with two build
@@ -1034,7 +1073,7 @@ func (g *Go) installWasmBrowserTest() error {
 //
 // Falls back to "./..." if go list gives nothing, so the caller still sees a real error
 // instead of an empty, silently-passing run.
-func (g *Go) wasmTestPackages(runAll bool) []string {
+func (g *Go) wasmTestPackages(dir string, runAll bool) []string {
 	args := []string{"list", "-f", "{{.ImportPath}} {{len .GoFiles}} {{len .TestGoFiles}} {{len .XTestGoFiles}}"}
 	if runAll {
 		args = append(args, "-tags=integration")
@@ -1042,7 +1081,7 @@ func (g *Go) wasmTestPackages(runAll bool) []string {
 	args = append(args, "./...")
 
 	cmd := exec.Command("go", args...)
-	cmd.Dir = g.rootDir
+	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	out, _ := cmd.Output() // stderr carries the excluded packages: expected, not fatal
 
