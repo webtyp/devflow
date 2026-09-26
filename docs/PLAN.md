@@ -2,8 +2,9 @@
 PLAN: "fix(gotest): submodules run their WASM suite too; gopush cascade reports the real failing stage and keeps the log"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 18113231280357664585
+PR: https://github.com/webtyp/devflow/pull/45
 ---
 
 > This plan is dispatched via the CodeJob workflow. See skill: agents-workflow.
