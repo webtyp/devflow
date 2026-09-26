@@ -69,6 +69,41 @@ func TestJulesSessionState(t *testing.T) {
 	}
 }
 
+// A session that stopped to ask something has no PR yet, exactly like one that is
+// still working — only its "state" tells them apart. Reporting it as "working"
+// leaves the plan loop polling a session that will never move until someone answers.
+func TestJulesSessionState_StoppedSessionsAreNotWorking(t *testing.T) {
+	cases := []struct {
+		state string
+		want  string
+	}{
+		{"AWAITING_USER_FEEDBACK", "waiting for your reply"},
+		{"AWAITING_PLAN_APPROVAL", "waiting for plan approval"},
+		{"FAILED", "session failed"},
+	}
+	for _, c := range cases {
+		client := &mockStateHTTPClient{
+			resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"id":"S1","state":"` + c.state + `","outputs":[]}`)),
+			},
+		}
+		msg, prURL, done, err := devflow.JulesSessionState("S1", "key", client)
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", c.state, err)
+		}
+		if done || prURL != "" {
+			t.Errorf("%s: expected done=false and no PR, got done=%v pr=%q", c.state, done, prURL)
+		}
+		if strings.Contains(msg, "working") {
+			t.Errorf("%s: a stopped session must not be reported as working, got %q", c.state, msg)
+		}
+		if !strings.Contains(msg, c.want) || !strings.Contains(msg, "S1") {
+			t.Errorf("%s: expected %q and the session id in the message, got %q", c.state, c.want, msg)
+		}
+	}
+}
+
 func TestCheckoutPRBranch_DirtyTreeSuccess(t *testing.T) {
 	dir := t.TempDir()
 	defer testChdir(t, dir)()

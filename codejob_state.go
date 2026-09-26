@@ -13,6 +13,15 @@ import (
 	keyring "webtyp.com/keyring/auto"
 )
 
+// Jules session states that mean the session stopped and will not produce a PR
+// until someone acts. Without a PR these look exactly like a working session;
+// only "state" tells them apart.
+const (
+	julesStateAwaitingFeedback     = "AWAITING_USER_FEEDBACK"
+	julesStateAwaitingPlanApproval = "AWAITING_PLAN_APPROVAL"
+	julesStateFailed               = "FAILED"
+)
+
 // JulesSessionState polls the Jules API for session status.
 // Returns (message, prURL, isDone, error).
 func JulesSessionState(sessionID, apiKey string, client HTTPClient) (msg, prURL string, done bool, err error) {
@@ -36,6 +45,7 @@ func JulesSessionState(sessionID, apiKey string, client HTTPClient) (msg, prURL 
 
 	var session struct {
 		ID      string `json:"id"`
+		State   string `json:"state"`
 		Outputs []struct {
 			PullRequest struct {
 				URL   string `json:"url"`
@@ -53,6 +63,15 @@ func JulesSessionState(sessionID, apiKey string, client HTTPClient) (msg, prURL 
 			msg := fmt.Sprintf("✅ Jules: PR ready\n   %s\n   %s", out.PullRequest.Title, out.PullRequest.URL)
 			return msg, out.PullRequest.URL, true, nil
 		}
+	}
+
+	switch session.State {
+	case julesStateAwaitingFeedback:
+		return fmt.Sprintf("⏸ Jules: waiting for your reply (session %s) — answer it in Jules, then run codejob again", sessionID), "", false, nil
+	case julesStateAwaitingPlanApproval:
+		return fmt.Sprintf("⏸ Jules: waiting for plan approval (session %s) — approve it in Jules, then run codejob again", sessionID), "", false, nil
+	case julesStateFailed:
+		return fmt.Sprintf("❌ Jules: session failed (session %s)", sessionID), "", false, nil
 	}
 
 	return "⏳ Jules: working...", "", false, nil
