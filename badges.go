@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"webtyp.com/command"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"webtyp.com/command"
 )
 
 const DevFlowRepository = "webtyp.com/devflow"
@@ -112,13 +113,6 @@ func (h *Badges) SetRootDir(dir string) {
 	if h.goH != nil {
 		h.goH.SetRootDir(dir)
 	}
-}
-
-func (h *Badges) getRootDir() string {
-	if h.rootDir == "" {
-		return "."
-	}
-	return h.rootDir
 }
 
 // BuildBadges generates the SVG image, writes it to the specified output file,
@@ -400,6 +394,9 @@ func getModuleName(dir string) (string, error) {
 		if strings.HasPrefix(line, "module ") {
 			return strings.TrimPrefix(line, "module "), nil
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
 	}
 	return "", fmt.Errorf("module name not found in go.mod")
 }

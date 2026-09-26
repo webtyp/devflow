@@ -934,7 +934,9 @@ func mergeCoverProfiles(dst string, srcs ...string) bool {
 	}
 
 	var b strings.Builder
-	b.WriteString("mode: " + mode + "\n")
+	b.WriteString("mode: ")
+	b.WriteString(mode)
+	b.WriteByte('\n')
 	for _, key := range order {
 		blk := blocks[key]
 		b.WriteString(fmt.Sprintf("%s %s %d\n", key, blk.stmts, blk.count))
