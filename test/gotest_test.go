@@ -566,8 +566,8 @@ goroutine 1 [running]:`,
 }
 
 func TestParseWasmTestPackages(t *testing.T) {
-	// Columns: import path, len(GoFiles), len(TestGoFiles), len(XTestGoFiles) — as
-	// reported by `go list` under GOOS=js.
+	// Columns: import path, len(GoFiles), len(TestGoFiles), len(XTestGoFiles) and the
+	// comma-joined IgnoredGoFiles (absent when empty) — as reported by `go list` under GOOS=js.
 	tests := []struct {
 		name     string
 		goList   string
@@ -575,7 +575,7 @@ func TestParseWasmTestPackages(t *testing.T) {
 	}{
 		{
 			name: "Two build targets - host-only packages are skipped, not failed",
-			goList: "webtyp.com/goflare 0 2 0\n" + // root: sources are all !wasm
+			goList: "webtyp.com/goflare 0 2 0 goflare.go,build.go\n" + // root: sources are all !wasm
 				"webtyp.com/goflare/cmd/goflare 1 0 0\n" + // a binary, no tests
 				"webtyp.com/goflare/edge 1 0 0\n" + // wasm code, no tests
 				"webtyp.com/goflare/tests 0 0 3\n", // external tests: the only runnable one
@@ -585,6 +585,19 @@ func TestParseWasmTestPackages(t *testing.T) {
 			name:     "Internal tests with sources present are kept",
 			goList:   "webtyp.com/dom 4 2 0\n",
 			expected: []string{"webtyp.com/dom"},
+		},
+		{
+			// The ecosystem convention: tests/ holds only _test.go files in package
+			// "tests" (internal, so TestGoFiles), and no sources at all. It builds and
+			// runs under wasm; dropping it silently skipped every browser test.
+			name:     "Test-only package (tests/ convention) is kept",
+			goList:   "github.com/veltylabs/room_layout/tests 0 22 0\n",
+			expected: []string{"github.com/veltylabs/room_layout/tests"},
+		},
+		{
+			name:     "Test-only package with some host-only test files is still kept",
+			goList:   "webtyp.com/form/tests 0 20 0 render.back_test.go,submit.back_test.go\n",
+			expected: []string{"webtyp.com/form/tests"},
 		},
 		{
 			name:     "Package without tests is skipped",

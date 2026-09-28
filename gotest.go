@@ -1076,7 +1076,7 @@ func (g *Go) wasmEnabledIn(dir string, runAll bool) bool {
 // Falls back to "./..." if go list gives nothing, so the caller still sees a real error
 // instead of an empty, silently-passing run.
 func (g *Go) wasmTestPackages(dir string, runAll bool) []string {
-	args := []string{"list", "-f", "{{.ImportPath}} {{len .GoFiles}} {{len .TestGoFiles}} {{len .XTestGoFiles}}"}
+	args := []string{"list", "-f", `{{.ImportPath}} {{len .GoFiles}} {{len .TestGoFiles}} {{len .XTestGoFiles}} {{join .IgnoredGoFiles ","}}`}
 	if runAll {
 		args = append(args, "-tags=integration")
 	}
@@ -1095,11 +1095,14 @@ func (g *Go) wasmTestPackages(dir string, runAll bool) []string {
 }
 
 // ParseWasmTestPackages keeps the packages that have tests AND can be built for wasm.
+//
+// Columns: import path, len(GoFiles), len(TestGoFiles), len(XTestGoFiles), and the
+// comma-joined IgnoredGoFiles (the column is absent when nothing was ignored).
 func ParseWasmTestPackages(goListOut string) []string {
 	var pkgs []string
 	for _, line := range strings.Split(goListOut, "\n") {
 		fields := strings.Fields(line)
-		if len(fields) != 4 {
+		if len(fields) != 4 && len(fields) != 5 {
 			continue
 		}
 		path := fields[0]
@@ -1113,15 +1116,27 @@ func ParseWasmTestPackages(goListOut string) []string {
 		if testFiles == 0 && xTestFiles == 0 {
 			continue // nothing to run here
 		}
-		// An internal test needs the package's own sources. With none of them left
-		// under wasm, the package cannot compile: that is a host-only package, not
-		// a failure.
-		if testFiles > 0 && goFiles == 0 {
+		// An internal test needs the package's own sources. When the wasm build
+		// excluded every one of them, that is a host-only package, not a failure.
+		// A package that never had sources — the tests/ directory, only _test.go
+		// files — builds fine and is kept: its internal tests are its whole content.
+		if testFiles > 0 && goFiles == 0 && len(fields) == 5 && hasIgnoredSource(fields[4]) {
 			continue
 		}
 		pkgs = append(pkgs, path)
 	}
 	return pkgs
+}
+
+// hasIgnoredSource reports whether a comma-joined IgnoredGoFiles list names a
+// non-test source file.
+func hasIgnoredSource(ignored string) bool {
+	for _, f := range strings.Split(ignored, ",") {
+		if f != "" && !strings.HasSuffix(f, "_test.go") {
+			return true
+		}
+	}
+	return false
 }
 
 // ShouldEnableWasm decides if WASM tests should be run based on go list output differences
