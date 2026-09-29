@@ -225,17 +225,52 @@ func TestJulesDriverSendRetriesWhenSourceNotIndexed(t *testing.T) {
 	}
 }
 
+// A repository created minutes ago is listed as a Jules source a little before Jules accepts
+// sessions on it: the first POST /sessions answers 404, the same request succeeds shortly
+// after. The driver must retry instead of failing the dispatch.
+func TestJulesDriverSendRetriesWhenSourceIndexedButSessionNotReady(t *testing.T) {
+	const sourceID = "sources/github/user/repo"
+	cfg := devflow.JulesConfig{
+		APIKey:              "test-key",
+		SourceID:            sourceID,
+		StartBranch:         "main",
+		SourceIndexTimeout:  200 * time.Millisecond,
+		SourceIndexInterval: 10 * time.Millisecond,
+	}
+	mock := &mockHTTPClientSeq{
+		responses: []seqResponse{
+			{404, "not found"},                // [0] POST /sessions → 404
+			{200, julesSourcesBody(sourceID)}, // [1] GET /sources → source IS indexed
+			{200, `{"id":"S777"}`},            // [2] POST /sessions → accepted now
+		},
+	}
+	d := devflow.NewJulesDriver(cfg)
+	d.SetHTTPClient(mock)
+	d.SetRunner(&mockRunner{})
+
+	result, err := d.Send("Execute the plan", "user/repo")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(result, "jules: S777") {
+		t.Errorf("expected session ID S777 in result, got: %s", result)
+	}
+}
+
 func TestJulesDriverSendReturns404WhenSourceIndexedButStill404(t *testing.T) {
 	const sourceID = "sources/github/user/repo"
 	cfg := devflow.JulesConfig{
-		APIKey:      "test-key",
-		SourceID:    sourceID,
-		StartBranch: "main",
+		APIKey:              "test-key",
+		SourceID:            sourceID,
+		StartBranch:         "main",
+		SourceIndexTimeout:  25 * time.Millisecond,
+		SourceIndexInterval: 10 * time.Millisecond,
 	}
 	mock := &mockHTTPClientSeq{
 		responses: []seqResponse{
 			{404, "real api error"},           // [0] POST /sessions → 404
 			{200, julesSourcesBody(sourceID)}, // [1] GET /sources → source IS indexed
+			{404, "real api error"},           // [2..N] POST /sessions retries → still 404
 		},
 	}
 	d := devflow.NewJulesDriver(cfg)

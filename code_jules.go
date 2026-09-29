@@ -199,12 +199,6 @@ func (d *JulesDriver) Send(prompt, title string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Jules source check failed: %w", err)
 	}
-	if indexed {
-		// Source exists in Jules but the API still returned 404 — real error.
-		return "", fmt.Errorf("Jules API returned 404: %s", strings.TrimSpace(string(lastResp)))
-	}
-
-	// Source not indexed yet — poll until it appears or timeout is exceeded.
 	timeout := d.config.SourceIndexTimeout
 	if timeout == 0 {
 		timeout = 2 * time.Minute
@@ -213,8 +207,32 @@ func (d *JulesDriver) Send(prompt, title string) (string, error) {
 	if interval == 0 {
 		interval = 10 * time.Second
 	}
-	d.log("Jules: source not indexed yet, waiting for", activeSourceID)
 	deadline := time.Now().Add(timeout)
+
+	if indexed {
+		// A freshly created repository is listed as a source a little before Jules accepts
+		// sessions on it: the first POST answers 404 and the same request succeeds shortly
+		// after. Retry until the timeout; a 404 that outlives it is a real error.
+		d.log("Jules: source listed but not accepting sessions yet, retrying", activeSourceID)
+		for time.Now().Before(deadline) {
+			time.Sleep(interval)
+			code, respBody, err := attemptCreate(activeSourceID)
+			if err != nil {
+				return "", err
+			}
+			if code == http.StatusOK {
+				return d.parseSessionID(respBody)
+			}
+			if code != http.StatusNotFound {
+				return "", fmt.Errorf("Jules API returned %d: %s", code, strings.TrimSpace(string(respBody)))
+			}
+			lastResp = respBody
+		}
+		return "", fmt.Errorf("Jules API returned 404: %s", strings.TrimSpace(string(lastResp)))
+	}
+
+	// Source not indexed yet — poll until it appears or timeout is exceeded.
+	d.log("Jules: source not indexed yet, waiting for", activeSourceID)
 
 	for time.Now().Before(deadline) {
 		time.Sleep(interval)
