@@ -200,7 +200,13 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 	}
 
 	// Go Mod Init
-	modulePath := fmt.Sprintf("github.com/%s/%s", ghUser, opts.Name)
+	modulePath, neighbor := modulePathFromNeighbors(filepath.Dir(targetDir), opts.Name)
+	if modulePath == "" {
+		modulePath = fmt.Sprintf("github.com/%s/%s", ghUser, opts.Name)
+		gn.log("Module path", modulePath, "(no Go repository next to it declares a prefix; using the GitHub owner)")
+	} else {
+		gn.log("Module path", modulePath, "(prefix taken from neighbor repository", neighbor+")")
+	}
 
 	if err := gn.goH.ModInit(modulePath, targetDir); err != nil {
 		return "", fmt.Errorf("go mod init failed: %w", err)
@@ -369,4 +375,53 @@ func (gn *GoNew) AddRemote(projectPath, visibility, owner string) (string, error
 	}
 
 	return fmt.Sprintf("✅ Remote added: %s/%s", ghUser, repoName), nil
+}
+
+const (
+	gitDirName      = ".git"
+	goModFileName   = "go.mod"
+	goModModuleWord = "module "
+)
+
+// modulePathFromNeighbors returns the module path a new repository called name should have
+// when it is created inside parentDir, taken from the first sibling (in directory order)
+// that is a git repository whose go.mod declares "module <prefix>/<its own directory name>".
+// For a directory of webtyp repositories that is "webtyp.com/<name>". It returns "" when no
+// sibling qualifies; neighbor is the sibling the prefix came from.
+func modulePathFromNeighbors(parentDir, name string) (modulePath, neighbor string) {
+	entries, err := os.ReadDir(parentDir)
+	if err != nil {
+		return "", ""
+	}
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == name {
+			continue
+		}
+		dir := filepath.Join(parentDir, e.Name())
+		if _, err := os.Stat(filepath.Join(dir, gitDirName)); err != nil {
+			continue
+		}
+		mod := readModulePath(filepath.Join(dir, goModFileName))
+		suffix := "/" + e.Name()
+		if mod == "" || !strings.HasSuffix(mod, suffix) {
+			continue
+		}
+		return strings.TrimSuffix(mod, suffix) + "/" + name, e.Name()
+	}
+	return "", ""
+}
+
+// readModulePath returns the module path declared in a go.mod file, or "" if there is none.
+func readModulePath(goModPath string) string {
+	content, err := os.ReadFile(goModPath)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, goModModuleWord) {
+			return strings.TrimSpace(strings.TrimPrefix(line, goModModuleWord))
+		}
+	}
+	return ""
 }

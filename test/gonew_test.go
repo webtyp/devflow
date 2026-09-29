@@ -216,3 +216,58 @@ func TestGoNewWithCustomOwner(t *testing.T) {
 		t.Errorf("go.mod should contain '%s', got:\n%s", expectedModulePath, string(goModContent))
 	}
 }
+
+// A new repository created next to existing Go repositories takes their module prefix:
+// in a directory where "neighbor" declares "module example.com/neighbor", a new
+// "test-project" must be "module example.com/test-project", not github.com/<owner>/….
+func TestGoNewModulePathFromNeighbor(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	git, err := gitmod.NewGit()
+	if err != nil {
+		t.Skip("git not installed")
+	}
+
+	os.Setenv("HOME", tmpDir)
+	gitConfig := `[user]
+	name = TestUser
+	email = test@example.com
+`
+	os.WriteFile(filepath.Join(tmpDir, ".gitconfig"), []byte(gitConfig), 0644)
+
+	// A git neighbor whose module path does NOT end in its directory name is skipped;
+	// the first one that does gives the prefix.
+	mismatch := filepath.Join(tmpDir, "aaa-mismatch")
+	os.MkdirAll(filepath.Join(mismatch, ".git"), 0755)
+	os.WriteFile(filepath.Join(mismatch, "go.mod"), []byte("module other.org/something-else\n\ngo 1.25\n"), 0644)
+
+	neighbor := filepath.Join(tmpDir, "neighbor")
+	os.MkdirAll(filepath.Join(neighbor, ".git"), 0755)
+	os.WriteFile(filepath.Join(neighbor, "go.mod"), []byte("module example.com/neighbor\n\ngo 1.25\n"), 0644)
+
+	goHandler, _ := devflow.NewGo(git)
+	gn := devflow.NewGoNew(git, nil, goHandler)
+
+	opts := devflow.NewProjectOptions{
+		Name:        "test-project",
+		Description: "A test project",
+		Owner:       "cdvelop",
+		LocalOnly:   true,
+		Directory:   filepath.Join(tmpDir, "test-project"),
+	}
+	if _, err := gn.Create(opts); err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	goMod, err := os.ReadFile(filepath.Join(opts.Directory, "go.mod"))
+	if err != nil {
+		t.Fatalf("Failed to read go.mod: %v", err)
+	}
+	if !strings.Contains(string(goMod), "module example.com/test-project") {
+		t.Errorf("module path should come from the neighbor repo, got:\n%s", string(goMod))
+	}
+}
