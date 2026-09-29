@@ -22,7 +22,7 @@ require (
 	webtyp.com/ghaction v0.1.2 // indirect
 	webtyp.com/json v0.5.25 // indirect
 	webtyp.com/router v0.2.1 // indirect
-	webtyp.com/time v0.5.5 // indirect
+	webtyp.com/time v0.5.7 // indirect
 	webtyp.com/unixid v0.2.28 // indirect
 	webtyp.com/webauthn v0.1.3 // indirect
 )
