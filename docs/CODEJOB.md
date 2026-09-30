@@ -76,6 +76,10 @@ you are standing in** — the one you dispatched from. There is nothing else to
 set up:
 
 - `STATUS: dispatch` → sends `docs/PLAN.md` to the `EXECUTOR`, `STATUS` → `running`.
+  The executor is told to run every stage and open the PR **without ever stopping to ask**: a
+  question pauses its session until someone answers, and the loop stalls. What it could not do
+  goes under a final `## Executor notes` heading of the plan and in the PR description, so
+  read that section first when reviewing.
 - `STATUS: running`, no PR yet → reports the agent is still working.
 - `STATUS: running`, PR ready → **checks out the PR branch in this same local
   clone**, `STATUS` → `review` (or `reviewing` if a `REVIEWER` is set).

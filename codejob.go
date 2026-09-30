@@ -247,6 +247,13 @@ func (c *CodeJob) GetSteps() []*wizard.Step {
 	}
 }
 
+// dispatchPrompt is what the executor receives. A question from the executor pauses its session
+// until a human answers, which stalls the plan loop, so it is told never to stop before the PR.
+const dispatchPrompt = "Execute the implementation plan described in %s: every stage, to the end, then open the pull request. " +
+	"Work autonomously. Never ask questions, never wait for approval or feedback, and never stop before the pull request exists. " +
+	"If something is unclear or cannot be done, choose the option most consistent with the plan, " +
+	"record what you did not do and why under a final \"## Executor notes\" heading of that plan file and in the pull request description, and continue."
+
 // Send validates issuePromptPath, publishes pending changes, then tries each
 // driver in order until one succeeds. Returns an error if the file is missing,
 // empty, the publish fails, or all drivers fail.
@@ -280,7 +287,7 @@ func (c *CodeJob) Send(issuePromptPath string) (string, error) {
 		return "", fmt.Errorf("no drivers configured")
 	}
 
-	prompt := "Execute the implementation plan described in " + issuePromptPath
+	prompt := fmt.Sprintf(dispatchPrompt, issuePromptPath)
 	title := autoDetectTitle()
 
 	var lastErr error
