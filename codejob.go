@@ -252,7 +252,8 @@ func (c *CodeJob) GetSteps() []*wizard.Step {
 const dispatchPrompt = "Execute the implementation plan described in %s: every stage, to the end, then open the pull request. " +
 	"Work autonomously. Never ask questions, never wait for approval or feedback, and never stop before the pull request exists. " +
 	"If something is unclear or cannot be done, choose the option most consistent with the plan, " +
-	"record what you did not do and why under a final \"## Executor notes\" heading of that plan file and in the pull request description, and continue."
+	"record what you did not do and why under a final \"## Executor notes\" heading of that plan file and in the pull request description, and continue. " +
+	"Never edit the frontmatter block between the first two \"---\" lines of that plan file: the workflow owns it."
 
 // Send validates issuePromptPath, publishes pending changes, then tries each
 // driver in order until one succeeds. Returns an error if the file is missing,

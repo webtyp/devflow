@@ -33,7 +33,7 @@ func TestCodeJob_Send_PromptForbidsStoppingToAsk(t *testing.T) {
 	if _, err := job.Send(path); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{path, "Never ask", "pull request", "Executor notes"} {
+	for _, want := range []string{path, "Never ask", "pull request", "Executor notes", "Never edit the frontmatter"} {
 		if !strings.Contains(d.prompt, want) {
 			t.Errorf("dispatch prompt lacks %q:\n%s", want, d.prompt)
 		}
