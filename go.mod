@@ -20,7 +20,7 @@ require (
 	webtyp.com/dbus v0.1.1 // indirect
 	webtyp.com/fetch v0.1.28 // indirect
 	webtyp.com/ghaction v0.1.2 // indirect
-	webtyp.com/json v0.5.25 // indirect
+	webtyp.com/json v0.5.27 // indirect
 	webtyp.com/router v0.3.0 // indirect
 	webtyp.com/time v0.5.7 // indirect
 	webtyp.com/unixid v0.2.28 // indirect
