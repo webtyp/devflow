@@ -213,7 +213,7 @@ func MergeAndPublish(runner gitmod.Runner, publisher Publisher, message, overrid
 		return gitmod.PushResult{}, err
 	}
 
-	// 1. Pre-merge: if working tree is dirty, commit corrections to Jules branch and push
+	// 1. Pre-merge: if working tree is dirty, commit corrections to the Jules branch.
 	statusOut, _ := runner.Run("git", "status", "--porcelain")
 	if strings.TrimSpace(statusOut) != "" {
 		if out, err := runner.Run("git", "add", "."); err != nil {
@@ -222,9 +222,11 @@ func MergeAndPublish(runner gitmod.Runner, publisher Publisher, message, overrid
 		if out, err := runner.Run("git", "commit", "-m", "review: corrections before merge"); err != nil {
 			return gitmod.PushResult{}, fmt.Errorf("pre-merge commit failed: %w\n%s", err, out)
 		}
-		if out, err := runner.Run("git", "push"); err != nil {
-			return gitmod.PushResult{}, fmt.Errorf("pre-merge push failed: %w\n%s", err, out)
-		}
+	}
+	// Always push: review corrections the reviewer already committed on the branch are local
+	// only, and "gh pr merge" merges what GitHub has, so without this push they are lost.
+	if out, err := runner.Run("git", "push", "origin", "HEAD"); err != nil {
+		return gitmod.PushResult{}, fmt.Errorf("pre-merge push failed: %w\n%s", err, out)
 	}
 
 	// Switch to default branch before merging

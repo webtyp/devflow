@@ -400,6 +400,40 @@ func TestMergeAndPublish_CleanStateSkipsPreCommit(t *testing.T) {
 	}
 }
 
+// TestMergeAndPublish_PushesCommittedCorrections is a regression test: a reviewer who commits
+// corrections on the PR branch leaves a clean tree, and those commits must still reach GitHub
+// before "gh pr merge", or the merge publishes the branch without them (lost in webtyp/lfm v0.1.0).
+func TestMergeAndPublish_PushesCommittedCorrections(t *testing.T) {
+	dir := t.TempDir()
+	defer testChdir(t, dir)()
+
+	_ = os.MkdirAll("docs", 0755)
+	_ = os.WriteFile("docs/PLAN.md", []byte("---\nPLAN: test\nPR: https://github.com/test/pull/1\n---\n"), 0644)
+
+	mockFn, calls := mockExecFor(false)
+	orig := command.Exec
+	defer func() { command.Exec = orig }()
+	command.Exec = mockFn
+
+	devflow.MergeAndPublish(gitmod.RealRunner{}, &MockPublisher{}, "test", "") //nolint: we test the call sequence
+
+	pushIdx, mergeIdx := -1, -1
+	for i, c := range *calls {
+		if pushIdx < 0 && strings.HasPrefix(c, "git push origin HEAD") {
+			pushIdx = i
+		}
+		if mergeIdx < 0 && strings.HasPrefix(c, "gh pr merge") {
+			mergeIdx = i
+		}
+	}
+	if pushIdx < 0 {
+		t.Fatal("git push origin HEAD was not called with a clean tree: committed corrections stay local")
+	}
+	if mergeIdx < 0 || mergeIdx < pushIdx {
+		t.Fatalf("gh pr merge (%d) must come after git push (%d)", mergeIdx, pushIdx)
+	}
+}
+
 // TestMergeAndPublish_UsesMasterWhenThatsTheDefaultBranch is a regression
 // test: repos whose default branch is "master" (e.g. old forks) must not
 // have MergeAndPublish hardcode "git checkout main" — it should resolve and

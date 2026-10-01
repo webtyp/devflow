@@ -97,6 +97,10 @@ codejob 'feat: implemented feature'
 codejob 'feat: implemented feature' v0.3.0
 ```
 
+Review corrections on the PR branch reach the merge either way: uncommitted changes are
+committed as "review: corrections before merge", and the branch is always pushed before
+`gh pr merge`, so corrections you already committed are not lost.
+
 ### Cloud (one-time setup, then zero-touch)
 
 ```bash
