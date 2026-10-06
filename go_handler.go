@@ -13,6 +13,7 @@ import (
 
 	gitmod "webtyp.com/git"
 	"webtyp.com/gorun"
+	"webtyp.com/modfind"
 )
 
 // Go handler for Go operations
@@ -215,7 +216,7 @@ const ErrPushBlockedActiveCodejob = "gopush blocked: active codejob session (COD
 //	skipDependents: If true, skips updating dependent modules
 //	skipBackup: If true, skips backup
 //	skipTag: If true, skips tag generation and pushes without tags
-//	searchPath: Path to search for dependent modules (default: the workspace root — see WorkspaceRoot — or ".." when there is none)
+//	searchPath: Path to search for dependent modules (default: the workspace root — see modfind.WorkspaceRoot — or ".." when there is none)
 func (g *Go) Push(message, tag string, skipTests, skipRace, skipDependents, skipBackup, skipTag, skipVerify bool, searchPath string) (gitmod.PushResult, error) {
 	// Validate message
 	if err := gitmod.ValidateCommitMessage(message); err != nil {
@@ -231,7 +232,7 @@ func (g *Go) Push(message, tag string, skipTests, skipRace, skipDependents, skip
 	}
 
 	if searchPath == "" {
-		searchPath = WorkspaceRoot(g.rootDir)
+		searchPath = modfind.WorkspaceRoot(g.rootDir)
 		if searchPath == "" {
 			searchPath = ".."
 		}

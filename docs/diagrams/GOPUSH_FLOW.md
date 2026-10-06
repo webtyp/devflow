@@ -12,19 +12,19 @@ cascade coordinator** (topological order, one commit+tag per module per wave).
 
 | Contract | Locked by |
 |---|---|
-| Dirty-guard per node: pathspec-limited commit (`go.mod`+`go.sum` only), no tag, never `git add .`/`-A` | [`TestUpdateDependentModule_DirtyTreeCommitsOnlyGoModAndSum`](../../test/dependents_guard_test.go) |
-| Git primitives: `StatusPorcelain`, `CommitPaths`, `DiffShortStat` (diff vs HEAD, staged or not), `WorkTreeDirtyBeyond` | [`test/dependents_guard_test.go`](../../test/dependents_guard_test.go) |
-| Graph: transitive closure, topological order, single node per module, cycle = error, `MaxCascadeDepth = 10` | [`TestBuildDependentGraph_*`](../../test/cascade_test.go) |
-| Wave semantics: one call per node with ALL published bumps, failure cuts only its branch, partial updates allowed, deps-only does not propagate, skipped when zero bumps | [`TestRunCascade_*`](../../test/cascade_test.go) |
-| Publish-objector chain: existing managers (`GoModHandler`/`Git`/`CodeJob`) implement `ObjectsToPublish`; strongest action wins (`Skip > DepsOnly > None`); `PLAN.md` pending → deps-only | [`test/publish_objector_test.go`](../../test/publish_objector_test.go) |
-| Deps commit format: `deps:` title, `cause:` line propagating the root message, bump list | [`TestBuildDepsCommitMessage`](../../test/commit_message_test.go) |
-| Root push: user title intact + `--shortstat` body | [`TestGoPush_AppendsShortStatBody`](../../test/go_handler_test.go) |
-| `UpdateDependentModule` carries `rootCause` (4th parameter) | [`TestUpdateDependentModule`](../../test/go_handler_test.go) |
-| Active session protection: `UpdateDependentModule` does NOT touch the repo at all | [`TestUpdateDependentModule_ActiveSessionLeavesRepoUntouched`](../../test/dependents_guard_test.go) |
-| Other replaces (unrelated modules) go deps-only: bump lands, no tag, no propagation | [`TestUpdateDependentModule_OtherReplacesGoesDepsOnly`](../../test/dependents_guard_test.go) |
-| Up-to-date protection: `UpdateDependentModule` does NOT touch the repo at all | [`TestUpdateDependentModule_UpToDateLeavesRepoUntouched`](../../test/dependents_guard_test.go) |
-| `RunCascade` blinda el tag rancio: un nodo saltado o deps-only no propaga nada | [`TestRunCascade_SkippedNodeDoesNotPropagate`](../../test/cascade_test.go) |
-| `Go.Push` bloqueado por sesión `CODEJOB` activa | [`TestGoPush_BlockedOnRunningPhase`](../../test/go_handler_test.go) |
+| Dirty-guard per node: pathspec-limited commit (`go.mod`+`go.sum` only), no tag, never `git add .`/`-A` | [`TestUpdateDependentModule_DirtyTreeCommitsOnlyGoModAndSum`](../../tests/dependents_guard_test.go) |
+| Git primitives: `StatusPorcelain`, `CommitPaths`, `DiffShortStat` (diff vs HEAD, staged or not), `WorkTreeDirtyBeyond` | [`tests/dependents_guard_test.go`](../../tests/dependents_guard_test.go) |
+| Graph: transitive closure, topological order, single node per module, cycle = error, `MaxCascadeDepth = 10` | [`TestBuildDependentGraph_*`](../../tests/cascade_test.go) |
+| Wave semantics: one call per node with ALL published bumps, failure cuts only its branch, partial updates allowed, deps-only does not propagate, skipped when zero bumps | [`TestRunCascade_*`](../../tests/cascade_test.go) |
+| Publish-objector chain: existing managers (`GoModHandler`/`Git`/`CodeJob`) implement `ObjectsToPublish`; strongest action wins (`Skip > DepsOnly > None`); `PLAN.md` pending → deps-only | [`tests/publish_objector_test.go`](../../tests/publish_objector_test.go) |
+| Deps commit format: `deps:` title, `cause:` line propagating the root message, bump list | [`TestBuildDepsCommitMessage`](../../tests/commit_message_test.go) |
+| Root push: user title intact + `--shortstat` body | [`TestGoPush_AppendsShortStatBody`](../../tests/go_handler_test.go) |
+| `UpdateDependentModule` carries `rootCause` (4th parameter) | [`TestUpdateDependentModule`](../../tests/go_handler_test.go) |
+| Active session protection: `UpdateDependentModule` does NOT touch the repo at all | [`TestUpdateDependentModule_ActiveSessionLeavesRepoUntouched`](../../tests/dependents_guard_test.go) |
+| Other replaces (unrelated modules) go deps-only: bump lands, no tag, no propagation | [`TestUpdateDependentModule_OtherReplacesGoesDepsOnly`](../../tests/dependents_guard_test.go) |
+| Up-to-date protection: `UpdateDependentModule` does NOT touch the repo at all | [`TestUpdateDependentModule_UpToDateLeavesRepoUntouched`](../../tests/dependents_guard_test.go) |
+| `RunCascade` blinda el tag rancio: un nodo saltado o deps-only no propaga nada | [`TestRunCascade_SkippedNodeDoesNotPropagate`](../../tests/cascade_test.go) |
+| `Go.Push` bloqueado por sesión `CODEJOB` activa | [`TestGoPush_BlockedOnRunningPhase`](../../tests/go_handler_test.go) |
 | Node result is a typed `CascadeOutcome`; status is never inferred from substrings | (Contractual type safety) |
 
 ## Main pipeline
@@ -64,27 +64,27 @@ flowchart TD
 - Shortstat body: computed **before** staging, so its contract is
   `git diff HEAD --shortstat` (staged or not) — a `--cached`-only
   implementation returns empty at message-build time
-  ([`TestGitDiffShortStat`](../../test/dependents_guard_test.go)).
+  ([`TestGitDiffShortStat`](../../tests/dependents_guard_test.go)).
 - Graph rules: cycles abort with an explicit error before anything is
   published; `MaxCascadeDepth = 10` topological levels
-  ([`TestBuildDependentGraph_CycleIsAnError`, `TestBuildDependentGraph_DepthLimit`](../../test/cascade_test.go)).
+  ([`TestBuildDependentGraph_CycleIsAnError`, `TestBuildDependentGraph_DepthLimit`](../../tests/cascade_test.go)).
 
 ## Per-node cascade processing
 
 Each dependent node is processed **exactly once** per wave
-([`TestRunCascade_DiamondProcessesNodeOnceWithAllBumps`](../../test/cascade_test.go)),
+([`TestRunCascade_DiamondProcessesNodeOnceWithAllBumps`](../../tests/cascade_test.go)),
 receiving the bumps of ALL its in-cascade dependencies published in this wave.
 A node with zero available bumps (every upstream failed or published nothing)
 is **skipped**; a node with some failed upstreams is still processed with the
 bumps that did publish — partial updates are safe: the module simply stays on
 the old version of the failed dependency
-([`TestRunCascade_FailureCutsOnlyItsBranch`](../../test/cascade_test.go)).
+([`TestRunCascade_FailureCutsOnlyItsBranch`](../../tests/cascade_test.go)).
 
 Whether a node publishes is decided by a **publish-objector chain**: the go
 publisher asks each domain manager "do you object to publishing this repo?" and
 takes the strongest action (`Skip > DepsOnly > None`). No manager owns another's
 concern — each existing manager implements `ObjectsToPublish` for its own domain
-([`TestResolvePublishAction_*`](../../test/publish_objector_test.go)):
+([`TestResolvePublishAction_*`](../../tests/publish_objector_test.go)):
 
 | Objector (existing manager) | Objects when | Action |
 |---|---|---|
@@ -115,10 +115,10 @@ Guard rails:
   dependent** — a `DepsOnly` node (dirty tree, e.g. WIP like `webtyp/sse`, or a
   pending `docs/PLAN.md`) only ever gets a pathspec-limited
   `git add go.mod go.sum`. Developer WIP is never swept into a deps commit
-  ([`TestUpdateDependentModule_DirtyTreeCommitsOnlyGoModAndSum`](../../test/dependents_guard_test.go)).
+  ([`TestUpdateDependentModule_DirtyTreeCommitsOnlyGoModAndSum`](../../tests/dependents_guard_test.go)).
 - The dirty objector (`Git`) uses `WorkTreeDirtyBeyond` — `.env` and `.gitignore`
   are always ignored, same rule as `HasPendingChanges`
-  ([`TestWorkTreeDirtyBeyond`](../../test/dependents_guard_test.go)).
+  ([`TestWorkTreeDirtyBeyond`](../../tests/dependents_guard_test.go)).
 - **`Skip` nodes (active `CODEJOB` session): the repo is NOT
   touched at all** — no `go.mod` write, no `go get`, no tests. Nothing propagates
   downstream.
@@ -133,7 +133,7 @@ Guard rails:
   withheld because the repo still depends on unpublished local code elsewhere —
   the unrelated `replace` itself is left untouched.
 - **Commit message** is deterministic, built by `BuildDepsCommitMessage`
-  ([`TestBuildDepsCommitMessage`](../../test/commit_message_test.go)):
+  ([`TestBuildDepsCommitMessage`](../../tests/commit_message_test.go)):
   ```
   deps: update router to v0.1.3
 

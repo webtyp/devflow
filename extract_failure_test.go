@@ -1,5 +1,7 @@
 package devflow
 
+// Root-level test (justified): exercises extractFirstFailure and writeGateLog — unexported functions used in cascade logic that do not expose external API points.
+
 import (
 	"os"
 	"path/filepath"
