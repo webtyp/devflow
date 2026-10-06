@@ -2,8 +2,9 @@
 PLAN: "refactor: workspace root and go.mod walk come from modfind"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 7906523861212882946
+PR: https://github.com/webtyp/devflow/pull/46
 ---
 
 > This plan is dispatched via the CodeJob workflow. See skill: agents-workflow.
