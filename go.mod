@@ -11,7 +11,7 @@ require (
 	webtyp.com/keyring v0.2.4
 	webtyp.com/markdown v0.0.3
 	webtyp.com/mcp v0.2.40
-	webtyp.com/model v0.1.9
+	webtyp.com/model v0.2.2
 )
 
 require (
