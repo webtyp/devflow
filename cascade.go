@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"webtyp.com/modfind"
 )
 
 const MaxCascadeDepth = 10
@@ -285,36 +287,19 @@ func (g *Go) printCascadeReport(report CascadeReport) {
 
 // findAllModules finds all go.mod files in searchPath
 func (g *Go) findAllModules(searchPath string) (map[string]string, error) {
-	modules := make(map[string]string)
-	err := filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // Skip errors
+	mods, err := modfind.WorkspaceModules(searchPath)
+	if err != nil {
+		return nil, err
+	}
+	absRoot, _ := filepath.Abs(g.rootDir)
+	modules := make(map[string]string, len(mods))
+	for _, m := range mods {
+		if absDir, _ := filepath.Abs(m.Dir); absDir == absRoot {
+			continue
 		}
-		if info.IsDir() {
-			if skipWalkDir(path, searchPath, info) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if info.Name() == "go.mod" {
-			dir := filepath.Dir(path)
-			// Avoid including the current rootDir if it's inside searchPath
-			absDir, _ := filepath.Abs(dir)
-			absRoot, _ := filepath.Abs(g.rootDir)
-			if absDir == absRoot {
-				return nil
-			}
-
-			goHandler, _ := NewGo(nil)
-			goHandler.SetRootDir(dir)
-			modPath, err := goHandler.GetModulePath()
-			if err == nil {
-				modules[dir] = modPath
-			}
-		}
-		return nil
-	})
-	return modules, err
+		modules[m.Dir] = m.Path
+	}
+	return modules, nil
 }
 
 func (g *Go) getModuleDependencies(dir string) ([]string, error) {

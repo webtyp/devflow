@@ -12,6 +12,7 @@ import (
 
 	"webtyp.com/command"
 	gitmod "webtyp.com/git"
+	"webtyp.com/modfind"
 )
 
 // GoModHandler represents a parsed go.mod file and handles file events
@@ -643,39 +644,26 @@ func (g *Go) FindDependentModules(modulePath, searchPath string) ([]string, erro
 
 	absRoot, _ := filepath.Abs(g.rootDir)
 
-	err := filepath.Walk(searchPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // Continue despite errors
-		}
+	mods, err := modfind.WorkspaceModules(searchPath)
+	if err != nil {
+		return nil, err
+	}
 
-		if info.IsDir() {
-			if skipWalkDir(path, searchPath, info) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		// Only go.mod files
-		if info.Name() != "go.mod" {
-			return nil
-		}
-
-		dir := filepath.Dir(path)
+	for _, m := range mods {
+		dir := m.Dir
 		absDir, _ := filepath.Abs(dir)
 
 		// Exclude internal submodules
 		if strings.HasPrefix(absDir, absRoot+string(os.PathSeparator)) || absDir == absRoot {
-			return nil
+			continue
 		}
 
-		if g.HasDependency(path, modulePath) {
+		if g.HasDependency(filepath.Join(dir, "go.mod"), modulePath) {
 			dependents = append(dependents, dir)
 		}
+	}
 
-		return nil
-	})
-
-	return dependents, err
+	return dependents, nil
 }
 
 // HasDependency checks if a go.mod contains a specific dependency

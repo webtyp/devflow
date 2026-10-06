@@ -2,8 +2,9 @@
 PLAN: "refactor: workspace root and go.mod walk come from modfind"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 7906523861212882946
+PR: https://github.com/webtyp/devflow/pull/46
 ---
 
 > This plan is dispatched via the CodeJob workflow. See skill: agents-workflow.
@@ -119,3 +120,12 @@ the root only when it needs an unexported identifier, and then it carries a writ
 | 2 | Workspace root | `go_handler.go`, `workspace.go` (deleted), `test/workspace_test.go` (deleted) |
 | 3 | go.mod walks | `cascade.go`, `go_mod.go` |
 | 4 | `test/` → `tests/` | `tests/**`, any file referencing `test/` |
+## Executor notes
+
+- Replaced `WorkspaceRoot` with `modfind.WorkspaceRoot` in `go_handler.go` and updated its comment.
+- Replaced `findAllModules` and `FindDependentModules` in `cascade.go` and `go_mod.go` to use `modfind.WorkspaceModules(searchPath)`
+- Deleted `workspace.go` and `test/workspace_test.go` entirely.
+- Renamed the `test` directory to `tests`.
+- Root-level tests (`cover_merge_test.go` and `extract_failure_test.go`) were left at the root as they test unexported functions and their signatures were prepended with justification comments.
+
+All tests are successfully passing.
