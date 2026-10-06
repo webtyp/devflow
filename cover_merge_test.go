@@ -1,3 +1,4 @@
+// Root-level test (justified): exercises mergeCoverProfiles — testing the raw block-merging logic does not require spinning up gotest instances or checking the file output.
 package devflow
 
 import (
@@ -7,7 +8,6 @@ import (
 	"testing"
 )
 
-// Root-level test (justified): exercises mergeCoverProfiles — testing the raw block-merging logic does not require spinning up gotest instances or checking the file output.
 
 // The defect this file guards against, reproduced from the real case:
 //
