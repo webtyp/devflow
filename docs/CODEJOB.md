@@ -82,7 +82,9 @@ set up:
   read that section first when reviewing. It is also told never to edit the plan's frontmatter,
   which the workflow owns: an executor that rewrote `STATUS` and dropped `PR` once left the loop
   unable to find its own pull request.
-- `STATUS: running`, no PR yet → reports the agent is still working.
+- `STATUS: running`, no PR yet → reports the agent is still working, **unless the session
+  stopped**: waiting for a reply, waiting for plan approval, finished without a PR, or failed.
+  Then it prints that state and the agent's last message, so you can read what it asked.
 - `STATUS: running`, PR ready → **checks out the PR branch in this same local
   clone**, `STATUS` → `review` (or `reviewing` if a `REVIEWER` is set).
 
@@ -90,6 +92,19 @@ Never `gh repo clone` the repo elsewhere or `gh pr checkout` by hand to inspect
 a plan's PR — codejob already tracks it and pulls it into the repo you are in.
 Cloning a second copy just to look at a diff codejob would hand you for free is
 the anti-pattern this section exists to head off.
+
+### Talking to the agent
+
+When the session stopped, answer it from the same repo. Both read the session id from the
+`docs/PLAN.md` frontmatter and use the Jules API key from the keyring:
+
+```bash
+codejob --reply "Yes, delete Tilde too. Finish every stage and open the PR."
+codejob --approve        # the session is waiting for plan approval
+```
+
+`--reply` resumes the session (also one that finished without a PR: tell it to open the PR).
+`STATUS` does not change; run bare `codejob` later to see the PR.
 
 ```bash
 # Close the loop with an explicit message/tag override (optional).

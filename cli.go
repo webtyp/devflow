@@ -43,6 +43,8 @@ type CodeJobCLIOpts struct {
 	Force          bool
 	Org            string
 	Visibility     string
+	Reply          string // --reply "text": answer the Jules session of docs/PLAN.md
+	Approve        bool   // --approve: approve the plan that session is waiting on
 }
 
 // ParseCodeJobFlags parses the complete set of flags and positional arguments for the codejob CLI.
@@ -76,6 +78,13 @@ func ParseCodeJobFlags(args []string) CodeJobCLIOpts {
 		} else if arg == "--org" && i+1 < len(args) {
 			opts.Org = args[i+1]
 			i++
+		} else if strings.HasPrefix(arg, "--reply=") {
+			opts.Reply = strings.TrimPrefix(arg, "--reply=")
+		} else if arg == "--reply" && i+1 < len(args) {
+			opts.Reply = args[i+1]
+			i++
+		} else if arg == "--approve" {
+			opts.Approve = true
 		} else if strings.HasPrefix(arg, "--visibility=") {
 			opts.Visibility = strings.TrimPrefix(arg, "--visibility=")
 		} else if arg == "--visibility" && i+1 < len(args) {

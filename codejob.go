@@ -202,6 +202,50 @@ func (c *CodeJob) checkStatus(meta PlanMeta) (string, error) {
 	return msg, nil
 }
 
+// Reply sends text to the Jules session recorded in docs/PLAN.md.
+func (c *CodeJob) Reply(text string) (string, error) {
+	sessionID, apiKey, err := activeJulesSession()
+	if err != nil {
+		return "", err
+	}
+	if err := JulesSendMessage(sessionID, apiKey, text, &http.Client{}); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("✉ Sent to Jules (session %s). Run 'codejob' later to check it.", sessionID), nil
+}
+
+// Approve approves the plan the Jules session of docs/PLAN.md is waiting on.
+func (c *CodeJob) Approve() (string, error) {
+	sessionID, apiKey, err := activeJulesSession()
+	if err != nil {
+		return "", err
+	}
+	if err := JulesApprovePlan(sessionID, apiKey, &http.Client{}); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("✅ Plan approved (session %s). Run 'codejob' later to check it.", sessionID), nil
+}
+
+// activeJulesSession returns the session in docs/PLAN.md and the API key.
+func activeJulesSession() (sessionID, apiKey string, err error) {
+	meta, err := ReadPlanMeta(DefaultIssuePromptPath)
+	if err != nil {
+		return "", "", fmt.Errorf("no %s with a Jules session here: %w", DefaultIssuePromptPath, err)
+	}
+	if meta.Session == "" {
+		return "", "", fmt.Errorf("%s has no SESSION: dispatch it first with 'codejob'", DefaultIssuePromptPath)
+	}
+	auth, err := NewJulesAuth()
+	if err != nil {
+		return "", "", err
+	}
+	apiKey, err = auth.EnsureAPIKey()
+	if err != nil {
+		return "", "", err
+	}
+	return meta.Session, apiKey, nil
+}
+
 func (c *CodeJob) runSetupWizard() error {
 	wiz := wizard.New(func(_ *context.Context) {
 		fmt.Println("\n✅ Jules API key saved. Run 'codejob' to dispatch a task.")

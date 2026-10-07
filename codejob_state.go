@@ -20,13 +20,13 @@ const (
 	julesStateAwaitingFeedback     = "AWAITING_USER_FEEDBACK"
 	julesStateAwaitingPlanApproval = "AWAITING_PLAN_APPROVAL"
 	julesStateFailed               = "FAILED"
+	julesStateCompleted            = "COMPLETED" // without a PR: the agent stopped and will not open one alone
 )
 
 // JulesSessionState polls the Jules API for session status.
 // Returns (message, prURL, isDone, error).
 func JulesSessionState(sessionID, apiKey string, client HTTPClient) (msg, prURL string, done bool, err error) {
-	url := fmt.Sprintf("https://jules.googleapis.com/v1alpha/sessions/%s", sessionID)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequest(http.MethodGet, julesSessionURL(sessionID), nil)
 	if err != nil {
 		return "", "", false, fmt.Errorf("could not create request: %w", err)
 	}
@@ -65,17 +65,26 @@ func JulesSessionState(sessionID, apiKey string, client HTTPClient) (msg, prURL 
 		}
 	}
 
+	var status string
 	switch session.State {
 	case julesStateAwaitingFeedback:
-		return fmt.Sprintf("⏸ Jules: waiting for your reply (session %s) — answer it in Jules, then run codejob again", sessionID), "", false, nil
+		status = fmt.Sprintf("⏸ Jules: waiting for your reply (session %s) — answer with: codejob --reply \"...\"", sessionID)
 	case julesStateAwaitingPlanApproval:
-		return fmt.Sprintf("⏸ Jules: waiting for plan approval (session %s) — approve it in Jules, then run codejob again", sessionID), "", false, nil
+		status = fmt.Sprintf("⏸ Jules: waiting for plan approval (session %s) — approve with: codejob --approve", sessionID)
+	case julesStateCompleted:
+		status = fmt.Sprintf("⚠ Jules: session finished without a PR (session %s) — tell it what to do with: codejob --reply \"...\"", sessionID)
 	case julesStateFailed:
-		return fmt.Sprintf("❌ Jules: session failed (session %s)", sessionID), "", false, nil
+		status = fmt.Sprintf("❌ Jules: session failed (session %s)", sessionID)
+	default:
+		return "⏳ Jules: working...", "", false, nil
 	}
-
-	return "⏳ Jules: working...", "", false, nil
+	// Best effort: the status is still useful when the activities cannot be read.
+	if last, err := julesLastAgentMessage(sessionID, apiKey, client); err == nil && last != "" {
+		status += "\n\nJules said:\n" + last
+	}
+	return status, "", false, nil
 }
+
 
 // CheckoutPRBranch fetches and hard-positions the working tree on the PR's
 // head branch. A dirty working tree is handled, not feared: local drift is

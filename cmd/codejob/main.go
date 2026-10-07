@@ -40,6 +40,25 @@ func main() {
 		return
 	}
 
+	if opts.Reply != "" || opts.Approve {
+		job := devflow.NewCodeJob(devflow.NewJulesDriver(devflow.JulesConfig{}))
+		var (
+			out string
+			err error
+		)
+		if opts.Approve {
+			out, err = job.Approve()
+		} else {
+			out, err = job.Reply(opts.Reply)
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+			os.Exit(1)
+		}
+		fmt.Println(out)
+		return
+	}
+
 	if opts.Message == "" && !devflow.IsEnvironmentValid(".env") {
 		showHelp()
 		return
@@ -123,6 +142,8 @@ func showHelp() {
 	fmt.Println("  tag                  Explicit version tag (optional, e.g., v0.1.0)")
 	fmt.Println("\nFlags:")
 	fmt.Println("  --release            Create a GitHub Release after merge and publish")
+	fmt.Println("  --reply \"text\"       Answer the Jules session of docs/PLAN.md (a question, a correction)")
+	fmt.Println("  --approve            Approve the plan that Jules session is waiting on")
 	fmt.Println("  --reset-gh-token     Remove the stored GitHub PAT from the keyring")
 	fmt.Println("  --ci <phase>         Run a single CI state transition:")
 	fmt.Println("                       dispatch | review | verdict | publish")
@@ -144,6 +165,9 @@ func showHelp() {
 	fmt.Println("               Once the agent's PR is ready, that bare call is what moves")
 	fmt.Println("               STATUS to review (or reviewing if a REVIEWER is set) and")
 	fmt.Println("               checks out the PR branch IN PLACE for local inspection.")
+	fmt.Println("               If Jules stopped (a question, a plan to approve, or finished")
+	fmt.Println("               without a PR), the bare call prints its last message: answer")
+	fmt.Println("               with 'codejob --reply \"...\"' or 'codejob --approve'.")
 	fmt.Println("  3. RESOLVE:")
 	fmt.Println("     - APPROVE: Run 'codejob \"message\" [tag]' to merge the PR and publish;")
 	fmt.Println("                docs/PLAN.md is deleted once published.")
