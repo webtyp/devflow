@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"webtyp.com/command"
-	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 )
 
 var semverTagRe = regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
@@ -275,14 +275,11 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 	var stdTestsRan bool
 	testStatus, raceStatus, stdTestsRan, msgs = EvaluateTestResults(testErr, testOutput, moduleName, msgs, skipRace)
 
-	// If no stdlib tests ran but we see exclusions, consider enabling WASM (if not already enabled)
-	if !stdTestsRan {
-		isExclusionError := strings.Contains(testOutput, "matched no packages") ||
-			strings.Contains(testOutput, "build constraints exclude all Go files")
-		if isExclusionError {
-			enableWasmTests = true
-			g.log("No stdlib tests matched/run (possibly WASM-only module), skipping stdlib tests...")
-		}
+	// If no stdlib tests ran because the module only builds for js/wasm, enable WASM
+	// (if not already enabled). A module with no Go code at all is not WASM-only.
+	if !stdTestsRan && IsWasmOnlyModule(testOutput, g.wasmPackageList(g.rootDir)) {
+		enableWasmTests = true
+		g.log("No stdlib tests matched/run (WASM-only module), skipping stdlib tests...")
 	}
 
 	// Process coverage results from the profiles generated during the test runs above.
@@ -575,14 +572,11 @@ func (g *Go) runCustomTests(customArgs []string, moduleName string, timeoutSec i
 	}
 	msgs = filteredMsgs
 
-	// If no stdlib tests ran but we see exclusions, consider enabling WASM
-	if !stdTestsRan {
-		isExclusionError := strings.Contains(testOutput, "matched no packages") ||
-			strings.Contains(testOutput, "build constraints exclude all Go files")
-		if isExclusionError {
-			enableWasmTests = true
-			g.log("No stdlib tests matched/run (possibly WASM-only module), attempting WASM tests...")
-		}
+	// If no stdlib tests ran because the module only builds for js/wasm, enable WASM.
+	// A module with no Go code at all is not WASM-only.
+	if !stdTestsRan && IsWasmOnlyModule(testOutput, g.wasmPackageList(g.rootDir)) {
+		enableWasmTests = true
+		g.log("No stdlib tests matched/run (WASM-only module), attempting WASM tests...")
 	}
 
 	// Run WASM tests with same custom args (excluding -race)
@@ -973,7 +967,7 @@ func (g *Go) installWasmBrowserTest() error {
 }
 
 type wasmRun struct {
-	output   string   // combined go test output
+	output   string // combined go test output
 	failed   bool
 	timedOut []string // test names, or one "wasm tests exceeded Ns" entry
 	coverage string   // calculateAverageCoverage(output), "0" if none
@@ -1155,6 +1149,42 @@ func ShouldEnableWasm(nativeOut, wasmOut string) bool {
 		}
 	}
 	return false
+}
+
+// IsWasmOnlyModule reports whether a module whose stdlib `go test` ran nothing
+// builds only for js/wasm. stdTestOutput is that `go test` output; wasmListOut is
+// `GOOS=js GOARCH=wasm go list ./...` in the same directory. Every file excluded
+// by build constraints means WASM-only; "matched no packages" means WASM-only only
+// when js/wasm does list packages — a documentation-only module (no Go code at
+// all) says "matched no packages" for both targets and has nothing to test.
+func IsWasmOnlyModule(stdTestOutput, wasmListOut string) bool {
+	if strings.Contains(stdTestOutput, msgBuildConstraintsExcludeAll) {
+		return true
+	}
+	if !strings.Contains(stdTestOutput, msgMatchedNoPackages) {
+		return false
+	}
+	for _, line := range strings.Split(wasmListOut, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.Contains(line, msgMatchedNoPackages) && !strings.HasPrefix(line, "go: ") {
+			return true
+		}
+	}
+	return false
+}
+
+const (
+	msgMatchedNoPackages          = "matched no packages"
+	msgBuildConstraintsExcludeAll = "build constraints exclude all Go files"
+)
+
+// wasmPackageList returns `GOOS=js GOARCH=wasm go list ./...` run in dir.
+func (g *Go) wasmPackageList(dir string) string {
+	cmd := exec.Command("go", "list", "./...")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+	out, _ := cmd.CombinedOutput()
+	return string(out)
 }
 
 // HasVFlag checks if -v is already present in the args

@@ -625,3 +625,26 @@ func TestParseWasmTestPackages(t *testing.T) {
 		})
 	}
 }
+
+// A module with no Go code at all (documentation only) also makes `go test ./...`
+// say "matched no packages". That is not a WASM-only module: forcing the wasm
+// step there fails a repo that has nothing to test.
+func TestIsWasmOnlyModule(t *testing.T) {
+	const noPkgs = `go: warning: "./..." matched no packages`
+	cases := []struct {
+		name     string
+		stdOut   string
+		wasmList string
+		want     bool
+	}{
+		{"docs-only module: no packages for either target", noPkgs, noPkgs, false},
+		{"wasm-only module: packages exist for js/wasm", noPkgs, "webtyp.com/jsvalue", true},
+		{"all files excluded by build constraints", "build constraints exclude all Go files in /x", "", true},
+		{"normal module", "ok  	webtyp.com/x	0.01s", "webtyp.com/x", false},
+	}
+	for _, c := range cases {
+		if got := devflow.IsWasmOnlyModule(c.stdOut, c.wasmList); got != c.want {
+			t.Errorf("%s: IsWasmOnlyModule = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
