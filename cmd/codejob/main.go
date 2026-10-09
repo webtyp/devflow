@@ -65,8 +65,17 @@ func main() {
 		return
 	}
 
-	if opts.Command == "" && !devflow.IsEnvironmentValid(".env") {
+	// Bare codejob is read-only: help plus the plan's status, read from docs/PLAN.md alone.
+	// It never touches git, GitHub or the agent, so it runs before any of them is set up.
+	if opts.Command == "" && opts.CIPhase == "" {
 		showHelp()
+		status, err := devflow.NewCodeJob(devflow.NewJulesDriver(devflow.JulesConfig{})).StatusLine()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+			os.Exit(1)
+		}
+		fmt.Println()
+		fmt.Println(status)
 		return
 	}
 
@@ -134,9 +143,6 @@ func main() {
 		result, err = job.Pull()
 	case "close":
 		result, err = job.Close(opts.Message, opts.Tag, opts.IsRelease)
-	case "":
-		// bare codejob: print status line and exit 0
-		result, err = job.StatusLine()
 	default:
 		// Should be caught by parsing, but fallback
 		err = fmt.Errorf("unknown command: %s", opts.Command)
@@ -193,8 +199,8 @@ func showHelp() {
 	fmt.Println("  3. RESOLVE:")
 	fmt.Println("     - APPROVE: Run 'codejob close \"message\"' to merge the PR and publish;")
 	fmt.Println("                docs/PLAN.md is deleted once published.")
-	fmt.Println("     - ITERATE: If adjustments are needed, create a new docs/PLAN.md and run")
-	fmt.Println("                'codejob dispatch'. The old PR is merged first, then the new plan is dispatched.")
+	fmt.Println("     - ITERATE: Close the current plan first ('codejob close \"message\"'), then write")
+	fmt.Println("                the new docs/PLAN.md and run 'codejob dispatch'.")
 	fmt.Println("\nNote: every step above runs from the SAME local clone you dispatched from.")
 	fmt.Println("codejob tracks state in that repo's docs/PLAN.md and checks out branches in")
 	fmt.Println("place — there is never a reason to 'gh repo clone' or 'gh pr checkout' a repo")
