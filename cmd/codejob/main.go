@@ -13,6 +13,12 @@ import (
 
 func main() {
 	opts := devflow.ParseCodeJobFlags(os.Args)
+
+	if opts.ParseError != "" {
+		fmt.Fprintln(os.Stderr, opts.ParseError)
+		os.Exit(2)
+	}
+
 	if opts.IsHelp {
 		showHelp()
 		return
@@ -40,16 +46,16 @@ func main() {
 		return
 	}
 
-	if opts.Reply != "" || opts.Approve {
+	if opts.Command == "reply" || opts.Command == "approve" {
 		job := devflow.NewCodeJob(devflow.NewJulesDriver(devflow.JulesConfig{}))
 		var (
 			out string
 			err error
 		)
-		if opts.Approve {
+		if opts.Command == "approve" {
 			out, err = job.Approve()
 		} else {
-			out, err = job.Reply(opts.Reply)
+			out, err = job.Reply(opts.ReplyText)
 		}
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error:", err)
@@ -59,8 +65,17 @@ func main() {
 		return
 	}
 
-	if opts.Message == "" && !devflow.IsEnvironmentValid(".env") {
+	// Bare codejob is read-only: help plus the plan's status, read from docs/PLAN.md alone.
+	// It never touches git, GitHub or the agent, so it runs before any of them is set up.
+	if opts.Command == "" && opts.CIPhase == "" {
 		showHelp()
+		status, err := devflow.NewCodeJob(devflow.NewJulesDriver(devflow.JulesConfig{})).StatusLine()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+			os.Exit(1)
+		}
+		fmt.Println()
+		fmt.Println(status)
 		return
 	}
 
@@ -120,7 +135,19 @@ func main() {
 		return
 	}
 
-	result, err := job.Run(opts.Message, opts.Tag, opts.IsRelease)
+	var result string
+	switch opts.Command {
+	case "dispatch":
+		result, err = job.Dispatch()
+	case "pull":
+		result, err = job.Pull()
+	case "close":
+		result, err = job.Close(opts.Message, opts.Tag, opts.IsRelease)
+	default:
+		// Should be caught by parsing, but fallback
+		err = fmt.Errorf("unknown command: %s", opts.Command)
+	}
+
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
@@ -130,20 +157,22 @@ func main() {
 	if strings.HasPrefix(result, devflow.JulesResultPrefix) {
 		sessionID := strings.TrimPrefix(result, devflow.JulesResultPrefix)
 		fmt.Printf("Agent Jules • Session: %s\n", sessionID)
-	} else {
+	} else if result != "" {
 		fmt.Println(result)
 	}
 }
 
 func showHelp() {
-	fmt.Println("Usage: codejob [message] [tag] [flags]")
-	fmt.Println("\nArguments:")
-	fmt.Println("  message              Commit message (optional, used when closing a loop)")
-	fmt.Println("  tag                  Explicit version tag (optional, e.g., v0.1.0)")
+	fmt.Println("Usage: codejob [command] [flags]")
+	fmt.Println("\nCommands:")
+	fmt.Println("  (no command)         Read-only status of the current plan")
+	fmt.Println("  dispatch             Send docs/PLAN.md to the AI agent")
+	fmt.Println("  pull                 Check status or fetch/fast-forward the agent's PR branch")
+	fmt.Println("  reply \"text\"         Answer the agent session of docs/PLAN.md")
+	fmt.Println("  approve              Approve the plan that the session is waiting on")
+	fmt.Println("  close \"msg\" [tag]    Merge the PR, publish the module, and delete the plan")
 	fmt.Println("\nFlags:")
-	fmt.Println("  --release            Create a GitHub Release after merge and publish")
-	fmt.Println("  --reply \"text\"       Answer the Jules session of docs/PLAN.md (a question, a correction)")
-	fmt.Println("  --approve            Approve the plan that Jules session is waiting on")
+	fmt.Println("  --release            Create a GitHub Release after merge and publish (with close only)")
 	fmt.Println("  --reset-gh-token     Remove the stored GitHub PAT from the keyring")
 	fmt.Println("  --ci <phase>         Run a single CI state transition:")
 	fmt.Println("                       dispatch | review | verdict | publish")
@@ -158,22 +187,20 @@ func showHelp() {
 	fmt.Println("  All state lives in the frontmatter of docs/PLAN.md, so the loop (dispatch")
 	fmt.Println("  → review → publish) can run locally or entirely in GitHub Actions.")
 	fmt.Println("\nWorkflow:")
-	fmt.Printf("  1. DISPATCH: Create %s and run 'codejob' to start a new task.\n", devflow.DefaultIssuePromptPath)
+	fmt.Printf("  1. DISPATCH: Create %s and run 'codejob dispatch' to start a new task.\n", devflow.DefaultIssuePromptPath)
 	fmt.Println("               STATUS: dispatch is written to the PLAN.md frontmatter.")
-	fmt.Println("  2. REVIEW:   Run bare 'codejob' again (no args) from THIS SAME local repo —")
+	fmt.Println("  2. REVIEW:   Run 'codejob pull' from THIS SAME local repo —")
 	fmt.Println("               do not clone the repo elsewhere or 'gh pr checkout' by hand.")
-	fmt.Println("               Once the agent's PR is ready, that bare call is what moves")
-	fmt.Println("               STATUS to review (or reviewing if a REVIEWER is set) and")
-	fmt.Println("               checks out the PR branch IN PLACE for local inspection.")
+	fmt.Println("               Once the agent's PR is ready, pulling moves STATUS to review")
+	fmt.Println("               (or reviewing if a REVIEWER is set) and checks out the PR")
+	fmt.Println("               branch IN PLACE for local inspection.")
 	fmt.Println("               If Jules stopped (a question, a plan to approve, or finished")
-	fmt.Println("               without a PR), the bare call prints its last message: answer")
-	fmt.Println("               with 'codejob --reply \"...\"' or 'codejob --approve'.")
+	fmt.Println("               without a PR), answer with 'codejob reply \"...\"' or 'codejob approve'.")
 	fmt.Println("  3. RESOLVE:")
-	fmt.Println("     - APPROVE: Run 'codejob \"message\" [tag]' to merge the PR and publish;")
+	fmt.Println("     - APPROVE: Run 'codejob close \"message\"' to merge the PR and publish;")
 	fmt.Println("                docs/PLAN.md is deleted once published.")
-	fmt.Println("     - ITERATE: If adjustments are needed, create a new docs/PLAN.md and run")
-	fmt.Println("                'codejob'. The old PR is merged first, then the new plan is")
-	fmt.Println("                dispatched.")
+	fmt.Println("     - ITERATE: Close the current plan first ('codejob close \"message\"'), then write")
+	fmt.Println("                the new docs/PLAN.md and run 'codejob dispatch'.")
 	fmt.Println("\nNote: every step above runs from the SAME local clone you dispatched from.")
 	fmt.Println("codejob tracks state in that repo's docs/PLAN.md and checks out branches in")
 	fmt.Println("place — there is never a reason to 'gh repo clone' or 'gh pr checkout' a repo")

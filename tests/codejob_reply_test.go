@@ -131,17 +131,3 @@ func TestJulesApprovePlan(t *testing.T) {
 	}
 }
 
-func TestParseCodeJobFlags_ReplyAndApprove(t *testing.T) {
-	opts := devflow.ParseCodeJobFlags([]string{"codejob", "--reply", "open the PR"})
-	if opts.Reply != "open the PR" || opts.Message != "" {
-		t.Errorf("--reply: %+v", opts)
-	}
-	opts = devflow.ParseCodeJobFlags([]string{"codejob", "--reply=yes, delete it"})
-	if opts.Reply != "yes, delete it" {
-		t.Errorf("--reply=: %+v", opts)
-	}
-	opts = devflow.ParseCodeJobFlags([]string{"codejob", "--approve"})
-	if !opts.Approve || opts.Message != "" {
-		t.Errorf("--approve: %+v", opts)
-	}
-}

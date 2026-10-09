@@ -31,20 +31,29 @@ func ParseCLIArgs(args []string) (message, tag string, isHelp, isRelease bool) {
 	return
 }
 
+const (
+	cmdDispatch = "dispatch"
+	cmdPull     = "pull"
+	cmdReply    = "reply"
+	cmdApprove  = "approve"
+	cmdClose    = "close"
+)
+
 // CodeJobCLIOpts holds parsed options for the codejob CLI.
 type CodeJobCLIOpts struct {
-	Message        string
-	Tag            string
+	Command        string // cmdDispatch, cmdPull, cmdReply, cmdApprove, cmdClose, or ""
+	Message        string // only filled for close
+	Tag            string // only filled for close
+	ReplyText      string // only filled for reply
+	ParseError     string // set if parsing fails
 	IsHelp         bool
-	IsRelease      bool
+	IsRelease      bool // only valid with close
 	IsResetGHToken bool
 	CIPhase        string // "dispatch", "review", "verdict", "publish"
 	InitAction     bool
 	Force          bool
 	Org            string
 	Visibility     string
-	Reply          string // --reply "text": answer the Jules session of docs/PLAN.md
-	Approve        bool   // --approve: approve the plan that session is waiting on
 }
 
 // ParseCodeJobFlags parses the complete set of flags and positional arguments for the codejob CLI.
@@ -78,13 +87,6 @@ func ParseCodeJobFlags(args []string) CodeJobCLIOpts {
 		} else if arg == "--org" && i+1 < len(args) {
 			opts.Org = args[i+1]
 			i++
-		} else if strings.HasPrefix(arg, "--reply=") {
-			opts.Reply = strings.TrimPrefix(arg, "--reply=")
-		} else if arg == "--reply" && i+1 < len(args) {
-			opts.Reply = args[i+1]
-			i++
-		} else if arg == "--approve" {
-			opts.Approve = true
 		} else if strings.HasPrefix(arg, "--visibility=") {
 			opts.Visibility = strings.TrimPrefix(arg, "--visibility=")
 		} else if arg == "--visibility" && i+1 < len(args) {
@@ -95,19 +97,56 @@ func ParseCodeJobFlags(args []string) CodeJobCLIOpts {
 		}
 	}
 
-	if len(remaining) > 0 {
-		opts.Message = remaining[0]
+	if opts.IsHelp || opts.IsResetGHToken || opts.InitAction || opts.CIPhase != "" {
+		// When flags like --ci or --init-action or --help are passed, we don't strictly require a command.
+		// However, if there are remaining args, we shouldn't necessarily error out, as some tests pass --ci alongside message.
+		// Actually, let's process remaining just in case.
 	}
-	if len(remaining) > 1 {
-		opts.Tag = remaining[1]
+
+	if len(remaining) > 0 {
+		cmd := remaining[0]
+		switch cmd {
+		case cmdDispatch, cmdPull, cmdApprove:
+			opts.Command = cmd
+			if len(remaining) > 1 {
+				opts.ParseError = "codejob: unknown command \"" + strings.Join(remaining[1:], " ") + "\"; run codejob for help"
+			}
+		case cmdReply:
+			opts.Command = cmd
+			if len(remaining) > 1 {
+				opts.ReplyText = remaining[1]
+				if len(remaining) > 2 {
+					opts.ParseError = "codejob: unknown command \"" + strings.Join(remaining[2:], " ") + "\"; run codejob for help"
+				}
+			} else {
+				opts.ParseError = "codejob: reply needs a message: codejob reply \"text\""
+			}
+		case cmdClose:
+			opts.Command = cmd
+			if len(remaining) > 1 {
+				opts.Message = remaining[1]
+				if len(remaining) > 2 {
+					opts.Tag = remaining[2]
+				}
+				if len(remaining) > 3 {
+					opts.ParseError = "codejob: unknown command \"" + strings.Join(remaining[3:], " ") + "\"; run codejob for help"
+				}
+			} else {
+				opts.ParseError = "codejob: close needs a commit message: codejob close \"message\" [tag]"
+			}
+		default:
+			opts.ParseError = "codejob: unknown command \"" + cmd + "\"; run codejob for help"
+		}
+	}
+
+	if opts.IsRelease && opts.Command != cmdClose && opts.Command != "" {
+		opts.ParseError = "codejob: --release can only be used with the close command"
+	}
+
+	// Ensure bare commands don't have release flag if it's strictly enforced.
+	if opts.IsRelease && opts.Command == "" && len(remaining) == 0 && !opts.IsHelp && !opts.InitAction && !opts.IsResetGHToken && opts.CIPhase == "" {
+		opts.ParseError = "codejob: --release can only be used with the close command"
 	}
 
 	return opts
-}
-
-// ParseCodeJobArgs parses codejob CLI: codejob [message] [tag] [--reset-gh-token]
-// Returns message, tag, isHelp, isRelease, and isResetGHToken.
-func ParseCodeJobArgs(args []string) (message, tag string, isHelp, isRelease, isResetGHToken bool) {
-	opts := ParseCodeJobFlags(args)
-	return opts.Message, opts.Tag, opts.IsHelp, opts.IsRelease, opts.IsResetGHToken
 }

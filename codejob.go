@@ -98,10 +98,47 @@ func IsEnvironmentValid(dotenvPath string) bool {
 	return false
 }
 
-// Run implements the unified API logic.
-// isRelease indicates whether to create a GitHub Release after MergeAndPublish.
-func (c *CodeJob) Run(message, tag string, isRelease bool) (string, error) {
-	// If PLAN.md is missing, we cannot do anything
+// StatusLine returns a read-only status string for the current plan.
+func (c *CodeJob) StatusLine() (string, error) {
+	if _, err := os.Stat(DefaultIssuePromptPath); os.IsNotExist(err) {
+		return "no docs/PLAN.md in this directory", nil
+	}
+
+	meta, err := ReadPlanMeta(DefaultIssuePromptPath)
+	if err != nil {
+		return "", err
+	}
+
+	status := meta.Status
+	if status == "" {
+		status = "dispatch"
+	}
+
+	var parts []string
+	parts = append(parts, "STATUS "+status)
+	if meta.PR != "" {
+		parts = append(parts, "PR "+meta.PR)
+	}
+	if meta.Session != "" {
+		parts = append(parts, "session "+meta.Session)
+	}
+
+	res := "docs/PLAN.md: " + strings.Join(parts, " · ") + "\n"
+
+	status = strings.ToLower(status)
+	if status == "dispatch" || status == "" {
+		res += "next: codejob dispatch"
+	} else if status == "running" || status == "reviewing" {
+		res += "next: codejob pull"
+	} else if status == "review" {
+		res += "next: codejob pull   (or: codejob close \"message\" when the review is done)"
+	}
+
+	return res, nil
+}
+
+// Dispatch executes the dispatch phase of the codejob workflow.
+func (c *CodeJob) Dispatch() (string, error) {
 	if _, err := os.Stat(DefaultIssuePromptPath); os.IsNotExist(err) {
 		return "", fmt.Errorf("prompt file not found: %s", DefaultIssuePromptPath)
 	}
@@ -111,39 +148,9 @@ func (c *CodeJob) Run(message, tag string, isRelease bool) (string, error) {
 		return "", err
 	}
 
-	// Status derivation
-	if meta.Status == "" {
-		meta.Status = "dispatch"
-	}
-
-	// 1. If message provided (or status is review) -> close the loop
-	if message != "" || strings.ToLower(meta.Status) == "review" {
-		if c.publisher == nil {
-			return "", fmt.Errorf("no publisher configured")
-		}
-		res, err := MergeAndPublish(c.runner, c.publisher, message, tag)
-		if err != nil {
-			return "", err
-		}
-
-		// If -release flag is set and releaseFn is configured, create the release
-		if isRelease && c.releaseFn != nil {
-			if err := c.releaseFn(res.Tag); err != nil {
-				return res.Summary, fmt.Errorf("release creation failed: %w", err)
-			}
-		}
-
-		return res.Summary, nil
-	}
-
-	// 2. STATUS is running -> check status
-	if strings.ToLower(meta.Status) == "running" {
-		return c.checkStatus(meta)
-	}
-
-	// 3. STATUS is reviewing -> wait for review / check reviews
-	if strings.ToLower(meta.Status) == "reviewing" {
-		return "⏳ Reviewer is reviewing the PR...", nil
+	status := strings.ToLower(meta.Status)
+	if status != "" && status != "dispatch" {
+		return "", fmt.Errorf("codejob: plan is %s; dispatch only sends a plan whose STATUS is dispatch", status)
 	}
 
 	// 4. Auto-setup if API key missing
@@ -157,6 +164,89 @@ func (c *CodeJob) Run(message, tag string, isRelease bool) (string, error) {
 	// 5. Dispatch
 	return c.Send(DefaultIssuePromptPath)
 }
+
+// Pull checks status if running, or fast-forwards if in review/reviewing.
+func (c *CodeJob) Pull() (string, error) {
+	if _, err := os.Stat(DefaultIssuePromptPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("prompt file not found: %s", DefaultIssuePromptPath)
+	}
+
+	meta, err := ReadPlanMeta(DefaultIssuePromptPath)
+	if err != nil {
+		return "", err
+	}
+
+	status := strings.ToLower(meta.Status)
+	if status == "" || status == "dispatch" {
+		return "", fmt.Errorf("codejob: plan was not dispatched yet; run codejob dispatch")
+	}
+
+	if status == "running" {
+		return c.checkStatus(meta)
+	}
+
+	if status == "reviewing" || status == "review" {
+		if meta.PR == "" {
+			return "", fmt.Errorf("codejob: plan is %s but has no PR URL", status)
+		}
+
+		// Determine branch
+		branchOut, err := c.runner.Run("gh", "pr", "view", meta.PR, "--json", "headRefName", "--jq", ".headRefName")
+		if err != nil {
+			return "", fmt.Errorf("codejob: could not resolve branch from PR %s", meta.PR)
+		}
+		branch := strings.TrimSpace(branchOut)
+		if branch == "" {
+			return "", fmt.Errorf("codejob: could not resolve branch from PR %s", meta.PR)
+		}
+
+		if err := fastForwardPR(c.runner, branch); err != nil {
+			return "", err
+		}
+
+		if status == "reviewing" {
+			return "⏳ reviewer is reviewing the PR...", nil
+		}
+		return fmt.Sprintf("✅ fast-forwarded %s", branch), nil
+	}
+
+	return "", fmt.Errorf("codejob: unknown plan status: %s", status)
+}
+
+// Close merges the PR, publishes, and cleans up the plan.
+func (c *CodeJob) Close(message, tag string, isRelease bool) (string, error) {
+	if _, err := os.Stat(DefaultIssuePromptPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("prompt file not found: %s", DefaultIssuePromptPath)
+	}
+
+	meta, err := ReadPlanMeta(DefaultIssuePromptPath)
+	if err != nil {
+		return "", err
+	}
+
+	status := strings.ToLower(meta.Status)
+	if status != "review" {
+		return "", fmt.Errorf("codejob: plan is %s; close only publishes a plan in review (run codejob pull first)", status)
+	}
+
+	if c.publisher == nil {
+		return "", fmt.Errorf("no publisher configured")
+	}
+	res, err := MergeAndPublish(c.runner, c.publisher, message, tag)
+	if err != nil {
+		return "", err
+	}
+
+	// If -release flag is set and releaseFn is configured, create the release
+	if isRelease && c.releaseFn != nil {
+		if err := c.releaseFn(res.Tag); err != nil {
+			return res.Summary, fmt.Errorf("release creation failed: %w", err)
+		}
+	}
+
+	return res.Summary, nil
+}
+
 
 func (c *CodeJob) checkStatus(meta PlanMeta) (string, error) {
 	sessionID := meta.Session

@@ -53,7 +53,7 @@ func TestCodeJob_Run_NoArgs_Dispatch(t *testing.T) {
 	// Mock Publisher to satisfy Send's publish-before-dispatch
 	job.SetPublisher(&MockPublisher{})
 
-	got, err := job.Run("", "", false)
+	got, err := job.Dispatch()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestCodeJob_MessageWithoutPR(t *testing.T) {
 	job := devflow.NewCodeJob()
 	job.SetRunner(&mockRunner{})
 	job.SetPublisher(&MockPublisher{})
-	_, err := job.Run("some message", "", false)
+	_, err := job.Close("some message", "", false)
 	if err == nil {
 		t.Fatal("expected error when no PR found")
 	}
@@ -217,5 +217,35 @@ func TestCodejobObjector_NoObjectionWhenNoState(t *testing.T) {
 	action, reason := cj.ObjectsToPublish(ctx)
 	if action != gitmod.ActionNone {
 		t.Errorf("expected ActionNone, got %v (%s)", action, reason)
+	}
+}
+
+func TestCodeJob_BareCommand_StatusLine(t *testing.T) {
+	dir := t.TempDir()
+	defer testChdir(t, dir)()
+	os.MkdirAll("docs", 0755)
+
+	job := devflow.NewCodeJob()
+
+	// 1. No plan
+	res, err := job.StatusLine()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res != "no docs/PLAN.md in this directory" {
+		t.Errorf("expected missing plan status, got: %s", res)
+	}
+
+	// 2. Plan in review
+	os.WriteFile("docs/PLAN.md", []byte("---\nPLAN: \"test\"\nSTATUS: review\n---\n"), 0644)
+	res, err = job.StatusLine()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res, "STATUS review") {
+		t.Errorf("expected STATUS review, got: %s", res)
+	}
+	if !strings.Contains(res, "next: codejob pull") {
+		t.Errorf("expected next instruction, got: %s", res)
 	}
 }

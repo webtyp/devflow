@@ -36,20 +36,7 @@ func (m memStore) Delete(key string) error {
 	return nil
 }
 
-type mockRunner struct {
-	calls  []string
-	result string
-	err    error
-}
 
-func (m *mockRunner) Run(name string, args ...string) (string, error) {
-	full := name + " " + strings.Join(args, " ")
-	m.calls = append(m.calls, full)
-	if name == "gh" && strings.Contains(full, "reviews") {
-		return m.result, m.err
-	}
-	return "ok", nil
-}
 
 func TestAuth_EnvVarThenKeyring(t *testing.T) {
 	// Set env vars

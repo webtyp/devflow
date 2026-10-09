@@ -23,6 +23,40 @@ const (
 	julesStateCompleted            = "COMPLETED" // without a PR: the agent stopped and will not open one alone
 )
 
+// fastForwardPR fetches the PR branch and ensures we can safely merge --ff-only
+// If diverged, it returns the error string from the plan.
+func fastForwardPR(runner gitmod.Runner, branch string) error {
+	if _, err := runner.Run("git", "fetch", "origin", branch); err != nil {
+		return fmt.Errorf("git fetch origin %s failed: %w", branch, err)
+	}
+
+	// rev-list origin/branch..HEAD (commits local but not on remote)
+	aheadOut, err := runner.Run("git", "rev-list", "--count", "origin/"+branch+"..HEAD")
+	if err != nil {
+		return fmt.Errorf("could not compare branches: %w", err)
+	}
+	// rev-list HEAD..origin/branch (commits on remote but not local)
+	behindOut, err := runner.Run("git", "rev-list", "--count", "HEAD..origin/"+branch)
+	if err != nil {
+		return fmt.Errorf("could not compare branches: %w", err)
+	}
+
+	ahead := strings.TrimSpace(aheadOut) != "0"
+	behind := strings.TrimSpace(behindOut) != "0"
+
+	if ahead && behind {
+		return fmt.Errorf("codejob: local branch and the PR branch diverged; reconcile them by hand before closing")
+	}
+
+	if behind && !ahead {
+		if _, err := runner.Run("git", "merge", "--ff-only", "origin/"+branch); err != nil {
+			return fmt.Errorf("git merge --ff-only origin/%s failed: %w", branch, err)
+		}
+	}
+
+	return nil
+}
+
 // JulesSessionState polls the Jules API for session status.
 // Returns (message, prURL, isDone, error).
 func JulesSessionState(sessionID, apiKey string, client HTTPClient) (msg, prURL string, done bool, err error) {
@@ -218,7 +252,12 @@ func MergeAndPublish(runner gitmod.Runner, publisher Publisher, message, overrid
 	}
 
 	// 0. Ensure we are on the Jules branch before committing anything
-	if _, err := CheckoutPRBranch(runner, prURL); err != nil {
+	branch, err := CheckoutPRBranch(runner, prURL)
+	if err != nil {
+		return gitmod.PushResult{}, err
+	}
+
+	if err := fastForwardPR(runner, branch); err != nil {
 		return gitmod.PushResult{}, err
 	}
 
