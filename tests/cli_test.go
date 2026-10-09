@@ -165,7 +165,7 @@ func TestParseArgs_CIPhases(t *testing.T) {
 		name        string
 		args        []string
 		wantCIPhase string
-		wantMsg     string
+		wantCmd     string
 	}{
 		{
 			name:        "--ci dispatch as separate arg",
@@ -194,8 +194,8 @@ func TestParseArgs_CIPhases(t *testing.T) {
 		},
 		{
 			name:    "no --ci flag leaves CIPhase empty",
-			args:    []string{"cmd", "feat: something"},
-			wantMsg: "feat: something",
+			args:    []string{"cmd", "dispatch"},
+			wantCmd: "dispatch",
 		},
 	}
 
@@ -205,8 +205,8 @@ func TestParseArgs_CIPhases(t *testing.T) {
 			if opts.CIPhase != tt.wantCIPhase {
 				t.Errorf("ParseCodeJobFlags() CIPhase = %q, want %q", opts.CIPhase, tt.wantCIPhase)
 			}
-			if opts.Message != tt.wantMsg {
-				t.Errorf("ParseCodeJobFlags() Message = %q, want %q", opts.Message, tt.wantMsg)
+			if opts.Command != tt.wantCmd {
+				t.Errorf("ParseCodeJobFlags() Command = %q, want %q", opts.Command, tt.wantCmd)
 			}
 		})
 	}
@@ -259,7 +259,7 @@ func TestParseArgs_InitFlags(t *testing.T) {
 		},
 		{
 			name: "no init flags",
-			args: []string{"cmd", "feat: something"},
+			args: []string{"cmd", "dispatch"},
 		},
 	}
 
@@ -282,3 +282,133 @@ func TestParseArgs_InitFlags(t *testing.T) {
 	}
 }
 
+func TestParseCodeJobFlags_ExplicitCommands(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		wantCommand   string
+		wantMessage   string
+		wantTag       string
+		wantReplyText string
+		wantError     string
+	}{
+		{
+			name:        "Bare dispatch",
+			args:        []string{"codejob", "dispatch"},
+			wantCommand: "dispatch",
+		},
+		{
+			name:        "Dispatch with extra arg",
+			args:        []string{"codejob", "dispatch", "foo"},
+			wantCommand: "dispatch",
+			wantError:   "codejob: unknown command \"foo\"; run codejob for help",
+		},
+		{
+			name:        "Bare pull",
+			args:        []string{"codejob", "pull"},
+			wantCommand: "pull",
+		},
+		{
+			name:        "Bare reply (error)",
+			args:        []string{"codejob", "reply"},
+			wantCommand: "reply",
+			wantError:   "codejob: reply needs a message: codejob reply \"text\"",
+		},
+		{
+			name:          "Reply with text",
+			args:          []string{"codejob", "reply", "some message"},
+			wantCommand:   "reply",
+			wantReplyText: "some message",
+		},
+		{
+			name:          "Reply with text and extra arg",
+			args:          []string{"codejob", "reply", "some message", "foo"},
+			wantCommand:   "reply",
+			wantReplyText: "some message",
+			wantError:     "codejob: unknown command \"foo\"; run codejob for help",
+		},
+		{
+			name:        "Bare approve",
+			args:        []string{"codejob", "approve"},
+			wantCommand: "approve",
+		},
+		{
+			name:        "Bare close (error)",
+			args:        []string{"codejob", "close"},
+			wantCommand: "close",
+			wantError:   "codejob: close needs a commit message: codejob close \"message\" [tag]",
+		},
+		{
+			name:        "Close with message",
+			args:        []string{"codejob", "close", "chore: xyz"},
+			wantCommand: "close",
+			wantMessage: "chore: xyz",
+		},
+		{
+			name:        "Close with message and tag",
+			args:        []string{"codejob", "close", "chore: xyz", "v1.0.0"},
+			wantCommand: "close",
+			wantMessage: "chore: xyz",
+			wantTag:     "v1.0.0",
+		},
+		{
+			name:        "Close with message, tag, and extra arg",
+			args:        []string{"codejob", "close", "chore: xyz", "v1.0.0", "foo"},
+			wantCommand: "close",
+			wantMessage: "chore: xyz",
+			wantTag:     "v1.0.0",
+			wantError:   "codejob: unknown command \"foo\"; run codejob for help",
+		},
+		{
+			name:      "Unknown command",
+			args:      []string{"codejob", "unknowncmd"},
+			wantError: "codejob: unknown command \"unknowncmd\"; run codejob for help",
+		},
+		{
+			name:      "Positional message no longer works",
+			args:      []string{"codejob", "fix: everything"},
+			wantError: "codejob: unknown command \"fix: everything\"; run codejob for help",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := devflow.ParseCodeJobFlags(tt.args)
+			if opts.Command != tt.wantCommand {
+				t.Errorf("expected Command %q, got %q", tt.wantCommand, opts.Command)
+			}
+			if opts.Message != tt.wantMessage {
+				t.Errorf("expected Message %q, got %q", tt.wantMessage, opts.Message)
+			}
+			if opts.Tag != tt.wantTag {
+				t.Errorf("expected Tag %q, got %q", tt.wantTag, opts.Tag)
+			}
+			if opts.ReplyText != tt.wantReplyText {
+				t.Errorf("expected ReplyText %q, got %q", tt.wantReplyText, opts.ReplyText)
+			}
+			if opts.ParseError != tt.wantError {
+				t.Errorf("expected ParseError %q, got %q", tt.wantError, opts.ParseError)
+			}
+		})
+	}
+}
+
+func TestParseCodeJobFlags_ReleaseFlag(t *testing.T) {
+	opts := devflow.ParseCodeJobFlags([]string{"codejob", "--release", "close", "msg"})
+	if !opts.IsRelease {
+		t.Errorf("expected IsRelease true")
+	}
+	if opts.ParseError != "" {
+		t.Errorf("unexpected error: %s", opts.ParseError)
+	}
+
+	opts = devflow.ParseCodeJobFlags([]string{"codejob", "--release", "pull"})
+	if opts.ParseError != "codejob: --release can only be used with the close command" {
+		t.Errorf("expected specific release error, got %q", opts.ParseError)
+	}
+
+	opts = devflow.ParseCodeJobFlags([]string{"codejob", "--release"})
+	if opts.ParseError != "codejob: --release can only be used with the close command" {
+		t.Errorf("expected specific release error for bare --release, got %q", opts.ParseError)
+	}
+}

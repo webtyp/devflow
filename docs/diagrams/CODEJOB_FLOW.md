@@ -108,7 +108,9 @@ REVIEWER: none
 ## Usage
 
 ```bash
-codejob                 # local: run the phase implied by the current STATUS
+codejob dispatch        # local: send docs/PLAN.md to the EXECUTOR
+codejob pull            # local: fetch/fast-forward the agent's PR branch
+codejob close "msg"     # local: merge the PR and publish
 codejob --init-action   # scaffold .github/workflows/codejob.yml + register secrets
 ```
 

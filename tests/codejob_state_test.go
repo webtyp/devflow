@@ -272,6 +272,7 @@ func mockExecFor(dirtyStatus bool) (fn func(string, ...string) *exec.Cmd, calls 
 			return exec.Command("echo", "origin/main")
 		case full == "git branch --show-current":
 			return exec.Command("echo", "feat-branch")
+		case strings.HasPrefix(full, "git rev-list --count"): return exec.Command("echo", "0")
 		case strings.HasPrefix(full, "git rev-parse v"):
 			// Tag doesn't exist (TagExists returns false → CreateTag proceeds)
 			return exec.Command("sh", "-c", "exit 1")
@@ -458,6 +459,7 @@ func TestMergeAndPublish_UsesMasterWhenThatsTheDefaultBranch(t *testing.T) {
 			return exec.Command("true")
 		case full == "git symbolic-ref --short refs/remotes/origin/HEAD":
 			return exec.Command("echo", "origin/master")
+		case strings.HasPrefix(full, "git rev-list --count"): return exec.Command("echo", "0")
 		case strings.HasPrefix(full, "git rev-parse v"):
 			return exec.Command("sh", "-c", "exit 1")
 		default:

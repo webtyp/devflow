@@ -67,31 +67,37 @@ dispatch".
 ```bash
 go install webtyp.com/devflow/cmd/codejob@latest
 
-# Dispatch / advance: runs the phase implied by the current STATUS.
+# Every action is an explicit command:
+codejob dispatch                 # send docs/PLAN.md to the EXECUTOR
+codejob pull                     # fetch/fast-forward the agent's PR branch
+codejob reply "..."              # answer the agent
+codejob approve                  # approve the plan
+codejob close "msg" [tag]        # merge the PR and publish
+
+# Read-only status (no state changes)
 codejob
 ```
 
-`codejob` with no arguments **always runs from, and against, the local repo
-you are standing in** — the one you dispatched from. There is nothing else to
-set up:
+### Why explicit commands
 
-- `STATUS: dispatch` → sends `docs/PLAN.md` to the `EXECUTOR`, `STATUS` → `running`.
+Previously, running bare `codejob` advanced the loop blindly depending on hidden state in `docs/PLAN.md` (`STATUS`). A verified incident occurred where a reviewer ran bare `codejob` attempting to *fetch* an agent's corrections, but because the status was already `review`, the command executed a merge and publish instead. Now, `codejob` alone prints a harmless status block and stops; changes require explicit verbs like `dispatch`, `pull`, and `close`.
+
+### Local usage
+
+`codejob` commands **always run from, and against, the local repo you are standing in** — the one you dispatched from. There is nothing else to set up:
+
+- `codejob dispatch` (when `STATUS: dispatch`): sends `docs/PLAN.md` to the `EXECUTOR`, `STATUS` → `running`.
   The executor is told to run every stage and open the PR **without ever stopping to ask**: a
   question pauses its session until someone answers, and the loop stalls. What it could not do
   goes under a final `## Executor notes` heading of the plan and in the PR description, so
-  read that section first when reviewing. It is also told never to edit the plan's frontmatter,
-  which the workflow owns: an executor that rewrote `STATUS` and dropped `PR` once left the loop
-  unable to find its own pull request.
-- `STATUS: running`, no PR yet → reports the agent is still working, **unless the session
-  stopped**: waiting for a reply, waiting for plan approval, finished without a PR, or failed.
-  Then it prints that state and the agent's last message, so you can read what it asked.
-- `STATUS: running`, PR ready → **checks out the PR branch in this same local
-  clone**, `STATUS` → `review` (or `reviewing` if a `REVIEWER` is set).
+  read that section first when reviewing. It is also told never to edit the plan's frontmatter.
+- `codejob pull`:
+  - When `STATUS: running` and no PR yet: reports the agent is still working, **unless the session stopped**: waiting for a reply, waiting for plan approval, finished without a PR, or failed. Then it prints that state and the agent's last message.
+  - When `STATUS: running` and PR is ready: **checks out the PR branch in this same local clone**, `STATUS` → `review`.
+  - When `STATUS: review`/`reviewing`: uses a fast-forward rule (`git fetch` + `git merge --ff-only`) to sync your local branch with the PR branch without accidentally publishing it or overwriting local corrections.
 
 Never `gh repo clone` the repo elsewhere or `gh pr checkout` by hand to inspect
-a plan's PR — codejob already tracks it and pulls it into the repo you are in.
-Cloning a second copy just to look at a diff codejob would hand you for free is
-the anti-pattern this section exists to head off.
+a plan's PR — `codejob pull` handles it and correctly syncs branches for you.
 
 ### Talking to the agent
 
@@ -99,17 +105,17 @@ When the session stopped, answer it from the same repo. Both read the session id
 `docs/PLAN.md` frontmatter and use the Jules API key from the keyring:
 
 ```bash
-codejob --reply "Yes, delete Tilde too. Finish every stage and open the PR."
-codejob --approve        # the session is waiting for plan approval
+codejob reply "Yes, delete Tilde too. Finish every stage and open the PR."
+codejob approve        # the session is waiting for plan approval
 ```
 
-`--reply` resumes the session (also one that finished without a PR: tell it to open the PR).
-`STATUS` does not change; run bare `codejob` later to see the PR.
+`reply` resumes the session (also one that finished without a PR: tell it to open the PR).
+`STATUS` does not change; run `codejob pull` later to see the PR.
 
 ```bash
-# Close the loop with an explicit message/tag override (optional).
-codejob 'feat: implemented feature'
-codejob 'feat: implemented feature' v0.3.0
+# Close the loop with a required message and optional tag override.
+codejob close 'feat: implemented feature'
+codejob close 'feat: implemented feature' v0.3.0
 ```
 
 Review corrections on the PR branch reach the merge either way: uncommitted changes are

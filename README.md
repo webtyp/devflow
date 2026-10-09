@@ -12,7 +12,7 @@ Complete Go development automation: project init, testing, versioning, updates, 
 - **[devbackup](docs/DEVBACKUP.md)** - Configure and execute automated backups
 - **[badges](docs/BADGES.md)** - Generate SVG badges for README (test status, coverage, etc.)
 - **[goinstall](docs/GOINSTALL.md)** - Install all devflow commands at once
-- **[codejob](docs/CODEJOB.md)** - Send coding tasks to AI agents (Jules, etc.)
+- **[codejob](docs/CODEJOB.md)** - Send coding tasks to AI agents using explicit commands (Jules, etc.)
 
 ## Configuration
 
