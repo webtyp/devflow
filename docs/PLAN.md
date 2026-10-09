@@ -2,6 +2,8 @@
 PLAN: "feat(codejob)!: explicit commands — bare codejob only shows help and status, never dispatches, merges or publishes"
 EXECUTOR: jules
 REVIEWER: none
+STATUS: running
+SESSION: 7674739120228059181
 ---
 
 > This plan is dispatched via the CodeJob workflow. See skill: agents-workflow.
