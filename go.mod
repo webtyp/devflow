@@ -1,6 +1,6 @@
 module webtyp.com/devflow
 
-go 1.25.2
+go 1.26.8
 
 require (
 	golang.org/x/term v0.45.0
@@ -19,10 +19,11 @@ require (
 	webtyp.com/await v0.1.2 // indirect
 	webtyp.com/base64 v0.0.6 // indirect
 	webtyp.com/dbus v0.1.1 // indirect
+	webtyp.com/escape v0.1.0 // indirect
 	webtyp.com/fetch v0.1.28 // indirect
 	webtyp.com/ghaction v0.1.2 // indirect
-	webtyp.com/json v0.5.27 // indirect
-	webtyp.com/router v0.3.2 // indirect
+	webtyp.com/json v0.5.29 // indirect
+	webtyp.com/router v0.4.1 // indirect
 	webtyp.com/time v0.5.7 // indirect
 	webtyp.com/unixid v0.3.0 // indirect
 	webtyp.com/webauthn v0.1.3 // indirect
