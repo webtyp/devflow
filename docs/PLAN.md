@@ -2,6 +2,8 @@
 PLAN: "feat(codejob): pull lists every PR commit (new since last review, deletions, lines undone) and close refuses unreviewed commits"
 EXECUTOR: jules
 REVIEWER: none
+STATUS: running
+SESSION: 13885103654895181283
 ---
 
 > This plan is dispatched via the CodeJob workflow. See skill: agents-workflow.
