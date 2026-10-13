@@ -1,10 +1,19 @@
 ---
 PLAN: "feat(codejob): pull lists every PR commit (new since last review, deletions, lines undone) and close refuses unreviewed commits"
-EXECUTOR: jules
+EXECUTOR: local
 REVIEWER: none
-STATUS: running
-SESSION: 13885103654895181283
 ---
+
+> Executed LOCALLY on 2026-10-12: the Jules session lost its work in repeated `git reset`s (its
+> commit with the tests was never pushed) and was stopped. Each stage landed as a red
+> `test(codejob)` commit followed by its green `feat(codejob)` commit. Deviations:
+> - `CodeJob.SetHTTPClient`: the Jules client was hard-wired (`&http.Client{}`), so the
+>   "PR just ready" path of `Pull` could not be tested; `Reply` and `Approve` use it too.
+> - Extra tests for 100% coverage of the new code: `TestPRCommitReport_DiffError`,
+>   `TestPRCommitReport_MalformedAnswers`, `TestPull_PRReadyReportErrorKeepsStatus`,
+>   `TestPull_ReviewingShowsReport`, `TestPull_ReviewMarkWriteError`; `TestPRCommitReport_ShowError`
+>   also covers the second `git show` (deleted files).
+> - A `reviewing` plan keeps "⏳ reviewer is reviewing the PR..." as its first line, then the report.
 
 > This plan is dispatched via the CodeJob workflow. See skill: agents-workflow.
 

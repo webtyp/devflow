@@ -116,3 +116,6 @@ codejob --init-action   # scaffold .github/workflows/codejob.yml + register secr
 
 In the cloud the workflow calls `codejob --ci <phase>` (`dispatch`, `review`,
 `verdict`, `publish`); you never call `--ci` by hand.
+
+Reviewing in `review`: `codejob pull` lists every commit of the PR and `codejob close` refuses agent
+commits the reviewer was not shown — see [CODEJOB_PR_COMMITS.md](CODEJOB_PR_COMMITS.md).

@@ -56,6 +56,7 @@ REVIEWER: none
 | `REVIEW_SESSION` | machine | — | Reviewer session id. |
 | `ROUND` | machine | — | Executor↔reviewer round count (capped, default 3). |
 | `PR` | machine | — | URL of the PR opened by the executor. |
+| `REVIEWED_COMMIT` | machine | — | The last agent commit `codejob pull` showed the reviewer. `codejob close` refuses while a newer agent commit exists. |
 
 Unknown keys are ignored. `STATUS: dispatch` (or no machine keys) means "pending
 dispatch".
@@ -95,6 +96,38 @@ Previously, running bare `codejob` advanced the loop blindly depending on hidden
   - When `STATUS: running` and no PR yet: reports the agent is still working, **unless the session stopped**: waiting for a reply, waiting for plan approval, finished without a PR, or failed. Then it prints that state and the agent's last message.
   - When `STATUS: running` and PR is ready: **checks out the PR branch in this same local clone**, `STATUS` → `review`.
   - When `STATUS: review`/`reviewing`: uses a fast-forward rule (`git fetch` + `git merge --ff-only`) to sync your local branch with the PR branch without accidentally publishing it or overwriting local corrections.
+
+### Reviewing a PR commit by commit
+
+A PR that went through rounds holds several agent commits plus codejob's own (every commit
+codejob writes starts with `chore(codejob): `). Reading only the last commit, or only the net
+diff, misleads in both directions: a round-1 fix looks like the whole PR, and a commit that deletes
+what an earlier one added makes the net diff look empty. So `codejob pull` lists **every commit**,
+oldest first, whenever it shows the PR (when it becomes ready, and on every later pull):
+
+```
+Commits on feat-x (2 agent, 2 codejob) — review each one, not only the last:
+  🆕 a9013a7  feat: ServiceCard   google-labs-jules[bot]   3 files +190 −1
+     74f0aaf  (codejob) status transition to review [pr …/pull/10]
+  🆕 034c3ea  feat: ServiceCard   google-labs-jules[bot]   2 files +39 −19
+     561d943  (codejob) status transition to review [pr …/pull/10]
+     ⚠ 034c3ea deletes: tests/old_test.go
+     ⚠ later commits removed 18 lines that earlier commits of this PR added
+Net vs main: 4 files +221 −1
+Inspect one: git show <sha>
+```
+
+- `🆕` marks the agent commits you were not shown yet. **Review each one** (`git show <sha>`).
+- `⚠ … deletes:` names every file a commit deletes; `⚠ later commits removed N lines` means the net
+  diff hides work a later commit undid.
+- `codejob pull` records the newest agent commit it showed you in `REVIEWED_COMMIT` (one
+  `chore(codejob): reviewed up to <sha>` commit; when the PR just became ready, inside the status
+  commit).
+- **`codejob close` refuses commits you were not shown**: with no review recorded, or with agent
+  commits newer than `REVIEWED_COMMIT`, it stops and tells you to run `codejob pull`. Corrections
+  you committed locally but did not push do not count (close pushes them); ones you already pushed
+  appear in the next `codejob pull`.
+- Diagram and tests: [diagrams/CODEJOB_PR_COMMITS.md](diagrams/CODEJOB_PR_COMMITS.md).
 
 Never `gh repo clone` the repo elsewhere or `gh pr checkout` by hand to inspect
 a plan's PR — `codejob pull` handles it and correctly syncs branches for you.
