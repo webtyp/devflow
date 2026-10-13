@@ -251,36 +251,92 @@ func MergeAndPublish(runner gitmod.Runner, publisher Publisher, message, overrid
 		return gitmod.PushResult{}, fmt.Errorf("no pending PR found in PLAN.md frontmatter")
 	}
 
-	// 0. Ensure we are on the Jules branch before committing anything
-	branch, err := CheckoutPRBranch(runner, prURL)
-	if err != nil {
+	defaultBranch := resolveDefaultBranch(runner)
+	if prIsMerged(runner, prURL) {
+		// A previous close merged (and deleted the branch) but failed afterwards: resume from the pull.
+		if out, err := runner.Run("git", "checkout", defaultBranch); err != nil {
+			return gitmod.PushResult{}, fmt.Errorf("git checkout %s failed: %w\n%s", defaultBranch, err, out)
+		}
+	} else if err := mergePR(runner, prURL, defaultBranch); err != nil {
 		return gitmod.PushResult{}, err
 	}
 
-	if err := fastForwardPR(runner, branch); err != nil {
+	// 3. pull the merged commit locally
+	if err := pullRetryingRefLock(runner); err != nil {
 		return gitmod.PushResult{}, err
+	}
+
+	// 4. remove docs/PLAN.md
+	if _, err := os.Stat(DefaultIssuePromptPath); err == nil {
+		if err := os.Remove(DefaultIssuePromptPath); err != nil {
+			return gitmod.PushResult{}, fmt.Errorf("could not delete %s: %w", DefaultIssuePromptPath, err)
+		}
+	}
+
+	// No PLAN.md -> call full gopush
+	effMsg, effTag, err := ResolvePublishMessage(message, overrideTag, meta)
+	if err != nil {
+		return gitmod.PushResult{}, err
+	}
+	return publisher.Publish(effMsg, effTag, false, false, false, false, false, false)
+}
+
+// prIsMerged reports whether GitHub already merged the PR.
+func prIsMerged(runner gitmod.Runner, prURL string) bool {
+	out, err := runner.Run("gh", "pr", "view", prURL, "--json", "state", "--jq", ".state")
+	return err == nil && strings.TrimSpace(out) == "MERGED"
+}
+
+// pullRetryingRefLock runs "git pull", retrying while a concurrent fetch (an editor's
+// autofetch) holds or moves the remote ref: "cannot lock ref" is transient.
+func pullRetryingRefLock(runner gitmod.Runner) error {
+	var out string
+	var err error
+	for i := 0; i < 3; i++ {
+		out, err = runner.Run("git", "pull")
+		if err == nil {
+			return nil
+		}
+		if !strings.Contains(out, "cannot lock ref") && !strings.Contains(err.Error(), "cannot lock ref") {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("git pull failed: %w", err)
+}
+
+// mergePR brings the PR branch up to date, pushes any review corrections, and merges it
+// on GitHub (deleting the branch), leaving the working tree on defaultBranch.
+func mergePR(runner gitmod.Runner, prURL, defaultBranch string) error {
+	// 0. Ensure we are on the Jules branch before committing anything
+	branch, err := CheckoutPRBranch(runner, prURL)
+	if err != nil {
+		return err
+	}
+
+	if err := fastForwardPR(runner, branch); err != nil {
+		return err
 	}
 
 	// 1. Pre-merge: if working tree is dirty, commit corrections to the Jules branch.
 	statusOut, _ := runner.Run("git", "status", "--porcelain")
 	if strings.TrimSpace(statusOut) != "" {
 		if out, err := runner.Run("git", "add", "."); err != nil {
-			return gitmod.PushResult{}, fmt.Errorf("pre-merge git add failed: %w\n%s", err, out)
+			return fmt.Errorf("pre-merge git add failed: %w\n%s", err, out)
 		}
 		if out, err := runner.Run("git", "commit", "-m", "review: corrections before merge"); err != nil {
-			return gitmod.PushResult{}, fmt.Errorf("pre-merge commit failed: %w\n%s", err, out)
+			return fmt.Errorf("pre-merge commit failed: %w\n%s", err, out)
 		}
 	}
 	// Always push: review corrections the reviewer already committed on the branch are local
 	// only, and "gh pr merge" merges what GitHub has, so without this push they are lost.
 	if out, err := runner.Run("git", "push", "origin", "HEAD"); err != nil {
-		return gitmod.PushResult{}, fmt.Errorf("pre-merge push failed: %w\n%s", err, out)
+		return fmt.Errorf("pre-merge push failed: %w\n%s", err, out)
 	}
 
 	// Switch to default branch before merging
-	defaultBranch := resolveDefaultBranch(runner)
 	if out, err := runner.Run("git", "checkout", defaultBranch); err != nil {
-		return gitmod.PushResult{}, fmt.Errorf("git checkout %s failed: %w\n%s", defaultBranch, err, out)
+		return fmt.Errorf("git checkout %s failed: %w\n%s", defaultBranch, err, out)
 	}
 
 	// 2. merge PR and delete Jules branch on GitHub
@@ -300,25 +356,7 @@ func MergeAndPublish(runner gitmod.Runner, publisher Publisher, message, overrid
 		break
 	}
 	if mergeErr != nil {
-		return gitmod.PushResult{}, fmt.Errorf("gh pr merge failed: %w\n%s", mergeErr, mergeOut)
+		return fmt.Errorf("gh pr merge failed: %w\n%s", mergeErr, mergeOut)
 	}
-
-	// 2. pull the merged commit locally
-	if _, err := runner.Run("git", "pull"); err != nil {
-		return gitmod.PushResult{}, fmt.Errorf("git pull failed: %w", err)
-	}
-
-	// 3. remove docs/PLAN.md
-	if _, err := os.Stat(DefaultIssuePromptPath); err == nil {
-		if err := os.Remove(DefaultIssuePromptPath); err != nil {
-			return gitmod.PushResult{}, fmt.Errorf("could not delete %s: %w", DefaultIssuePromptPath, err)
-		}
-	}
-
-	// No PLAN.md -> call full gopush
-	effMsg, effTag, err := ResolvePublishMessage(message, overrideTag, meta)
-	if err != nil {
-		return gitmod.PushResult{}, err
-	}
-	return publisher.Publish(effMsg, effTag, false, false, false, false, false, false)
+	return nil
 }

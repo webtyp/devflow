@@ -435,6 +435,123 @@ func TestMergeAndPublish_PushesCommittedCorrections(t *testing.T) {
 	}
 }
 
+// TestMergeAndPublish_ResumesWhenPRAlreadyMerged is a regression test: a close whose
+// "gh pr merge --delete-branch" succeeded but whose following "git pull" failed (a
+// "cannot lock ref" race in webtyp/components PR #32) must be resumable. On the rerun the
+// PR is MERGED and its branch no longer exists on origin, so close must skip checkout,
+// fetch, push and merge, and go straight to pull, PLAN.md removal and publish.
+func TestMergeAndPublish_ResumesWhenPRAlreadyMerged(t *testing.T) {
+	dir := t.TempDir()
+	defer testChdir(t, dir)()
+
+	_ = os.MkdirAll("docs", 0755)
+	_ = os.WriteFile("docs/PLAN.md", []byte("---\nPLAN: test\nSTATUS: review\nPR: https://github.com/test/pull/1\n---\n"), 0644)
+
+	recorded := []string{}
+	orig := command.Exec
+	defer func() { command.Exec = orig }()
+	command.Exec = func(name string, args ...string) *exec.Cmd {
+		full := name + " " + strings.Join(args, " ")
+		recorded = append(recorded, full)
+		switch {
+		case strings.HasPrefix(full, "gh pr view https://github.com/test/pull/1") && strings.Contains(full, "state"):
+			return exec.Command("echo", "MERGED")
+		case full == "gh pr view https://github.com/test/pull/1 --json headRefName --jq .headRefName":
+			return exec.Command("echo", "feat-branch")
+		case strings.HasPrefix(full, "git fetch origin") && strings.Contains(full, "feat-branch"):
+			// The merge deleted the branch on origin.
+			return exec.Command("sh", "-c", "echo \"fatal: couldn't find remote ref feat-branch\" >&2; exit 128")
+		case strings.HasPrefix(full, "git push"):
+			return exec.Command("sh", "-c", "echo 'error: src refspec feat-branch does not match any' >&2; exit 1")
+		case strings.HasPrefix(full, "gh pr merge"):
+			return exec.Command("sh", "-c", "echo 'Pull request #1 was already merged' >&2; exit 1")
+		case full == "git symbolic-ref --short refs/remotes/origin/HEAD":
+			return exec.Command("echo", "origin/main")
+		case full == "git branch --show-current":
+			// The local copy of the PR branch survives the remote deletion.
+			return exec.Command("echo", "feat-branch")
+		case strings.HasPrefix(full, "git rev-list --count"):
+			return exec.Command("echo", "0")
+		case strings.HasPrefix(full, "git rev-parse v"):
+			return exec.Command("sh", "-c", "exit 1")
+		default:
+			return exec.Command("true")
+		}
+	}
+
+	published := ""
+	mockPub := &MockPublisher{
+		PublishFn: func(message, tag string, skipTests, skipRace, skipDependents, skipBackup, skipTag, skipVerify bool) (gitmod.PushResult, error) {
+			published = message
+			return gitmod.PushResult{Summary: "Mock published"}, nil
+		},
+	}
+
+	_, err := devflow.MergeAndPublish(gitmod.RealRunner{}, mockPub, "feat: resumed", "")
+	if err != nil {
+		t.Fatalf("close of an already merged PR must resume, got: %v\ncalls: %v", err, recorded)
+	}
+	if published != "feat: resumed" {
+		t.Errorf("publisher was not called with the close message, got %q", published)
+	}
+	if _, statErr := os.Stat("docs/PLAN.md"); !os.IsNotExist(statErr) {
+		t.Error("docs/PLAN.md must be removed when resuming an already merged close")
+	}
+
+	checkoutIdx, pullIdx := -1, -1
+	for i, c := range recorded {
+		if strings.HasPrefix(c, "gh pr merge") {
+			t.Errorf("gh pr merge must not run on an already merged PR (call %d)", i)
+		}
+		if checkoutIdx < 0 && c == "git checkout main" {
+			checkoutIdx = i
+		}
+		if pullIdx < 0 && strings.HasPrefix(c, "git pull") {
+			pullIdx = i
+		}
+	}
+	if checkoutIdx < 0 || pullIdx < 0 || pullIdx < checkoutIdx {
+		t.Errorf("expected git checkout main (%d) before git pull (%d)", checkoutIdx, pullIdx)
+	}
+}
+
+// TestMergeAndPublish_RetriesPullOnRefLockRace is a regression test: a concurrent fetch (an
+// editor's autofetch) moving origin/main while "git pull" runs makes it fail with "cannot lock
+// ref". The PR is already merged at that point, so aborting leaves close half done.
+func TestMergeAndPublish_RetriesPullOnRefLockRace(t *testing.T) {
+	dir := t.TempDir()
+	defer testChdir(t, dir)()
+
+	_ = os.MkdirAll("docs", 0755)
+	_ = os.WriteFile("docs/PLAN.md", []byte("---\nPLAN: test\nPR: https://github.com/test/pull/1\n---\n"), 0644)
+
+	mockFn, calls := mockExecFor(false)
+	pulls := 0
+	orig := command.Exec
+	defer func() { command.Exec = orig }()
+	command.Exec = func(name string, args ...string) *exec.Cmd {
+		if name == "git" && len(args) == 1 && args[0] == "pull" {
+			*calls = append(*calls, "git pull")
+			pulls++
+			if pulls == 1 {
+				return exec.Command("sh", "-c", "echo \"error: cannot lock ref 'refs/remotes/origin/main': is at c58be41 but expected 1fa5868\" >&2; exit 1")
+			}
+			return exec.Command("true")
+		}
+		return mockFn(name, args...)
+	}
+
+	if _, err := devflow.MergeAndPublish(gitmod.RealRunner{}, &MockPublisher{}, "test", ""); err != nil {
+		t.Fatalf("a ref lock race on git pull must be retried, got: %v", err)
+	}
+	if pulls != 2 {
+		t.Errorf("expected 2 git pull attempts, got %d", pulls)
+	}
+	if _, statErr := os.Stat("docs/PLAN.md"); !os.IsNotExist(statErr) {
+		t.Error("docs/PLAN.md must be removed once the retried pull succeeds")
+	}
+}
+
 // TestMergeAndPublish_UsesMasterWhenThatsTheDefaultBranch is a regression
 // test: repos whose default branch is "master" (e.g. old forks) must not
 // have MergeAndPublish hardcode "git checkout main" — it should resolve and
