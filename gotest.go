@@ -275,6 +275,20 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 	var stdTestsRan bool
 	testStatus, raceStatus, stdTestsRan, msgs = EvaluateTestResults(testErr, testOutput, moduleName, msgs, skipRace)
 
+	// Dev pass: code behind //go:build dev is invisible to the run above. When
+	// the module has any, run the suite once more with -tags dev so that code
+	// stays tested instead of rotting unseen.
+	if hasDevTaggedFiles(g.rootDir) {
+		devOut, devFailed := g.runDevPass(timeoutFlag)
+		if devFailed {
+			addMsg(false, "dev tests")
+			testStatus = "Failed"
+			g.consoleOutput(devOut)
+		} else {
+			addMsg(true, "dev tests")
+		}
+	}
+
 	// If no stdlib tests ran because the module only builds for js/wasm, enable WASM
 	// (if not already enabled). A module with no Go code at all is not WASM-only.
 	if !stdTestsRan && IsWasmOnlyModule(testOutput, g.wasmPackageList(g.rootDir)) {
