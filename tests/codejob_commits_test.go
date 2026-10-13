@@ -305,3 +305,204 @@ func TestCommitReport_StringShape(t *testing.T) {
 		t.Errorf("reviewed commit should be unmarked:\n%s", got)
 	}
 }
+
+// repo answers everything Pull and Close run against a repo whose PR is p, and records every
+// call ("git commit -m <msg>", "git push", "gh pr merge ...").
+func (p *fakePR) repo() (*fakeRunner, *[]string) {
+	calls := &[]string{}
+	report := p.runner()
+	return &fakeRunner{respond: func(args []string) (string, error) {
+		*calls = append(*calls, "git "+strings.Join(args, " "))
+		joined := strings.Join(args, " ")
+		switch {
+		case args[0] == "pr" && args[1] == "view" && strings.Contains(joined, "headRefName") && !strings.Contains(joined, "baseRefName"):
+			return "feat-x\n", nil
+		case args[0] == "pr" && args[1] == "merge":
+			return "", nil
+		case args[0] == "fetch" && len(args) == 2: // fetch --all / fetch origin <branch>
+			return "", nil
+		case args[0] == "status":
+			return "", nil
+		case args[0] == "branch":
+			return "feat-x\n", nil
+		case args[0] == "rev-list":
+			return "0\n", nil
+		case args[0] == "symbolic-ref":
+			return "origin/main\n", nil
+		case args[0] == "checkout", args[0] == "add", args[0] == "commit", args[0] == "push", args[0] == "pull", args[0] == "merge":
+			return "", nil
+		}
+		return report.respond(args)
+	}}, calls
+}
+
+func readMeta(t *testing.T) devflow.PlanMeta {
+	t.Helper()
+	meta, err := devflow.ReadPlanMeta(devflow.DefaultIssuePromptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return meta
+}
+
+func TestFrontmatter_ReviewedCommitRoundTrip(t *testing.T) {
+	planIn(t, "STATUS: review\n")
+	meta := readMeta(t)
+	meta.ReviewedCommit = sha("034c3ea")
+	if err := devflow.WritePlanMeta(devflow.DefaultIssuePromptPath, meta); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(devflow.DefaultIssuePromptPath)
+	if !strings.Contains(string(raw), devflow.FrontmatterKeyReviewedCommit+": "+sha("034c3ea")) {
+		t.Fatalf("frontmatter:\n%s", raw)
+	}
+	if got := readMeta(t).ReviewedCommit; got != sha("034c3ea") {
+		t.Fatalf("ReviewedCommit = %q", got)
+	}
+}
+
+// P1: the PR just became ready. One commit carries both the status transition and the review mark.
+func TestPull_PRReadyPrintsReportAndRecordsReviewedCommit(t *testing.T) {
+	planIn(t, "STATUS: running\nSESSION: S1\nREVIEWER: none\n")
+	t.Setenv("JULES_API_KEY", "key")
+	runner, calls := pr10().repo()
+	job := devflow.NewCodeJob()
+	job.SetRunner(runner)
+	job.SetHTTPClient(&routedJulesClient{routes: map[string]string{
+		"GET " + julesSession: `{"id":"S1","state":"COMPLETED","outputs":[{"pullRequest":{"url":"` + prURL10 + `","title":"feat: ServiceCard"}}]}`,
+	}})
+
+	out, err := job.Pull()
+	if err != nil {
+		t.Fatalf("Pull: %v", err)
+	}
+	if !strings.Contains(out, "✅ Jules: PR ready") || !strings.Contains(out, "Commits on feat-x (2 agent, 2 codejob)") {
+		t.Errorf("output:\n%s", out)
+	}
+	meta := readMeta(t)
+	if meta.Status != "review" || meta.PR != prURL10 || meta.ReviewedCommit != sha("034c3ea") {
+		t.Errorf("meta = %+v", meta)
+	}
+	commits := commitMessages(*calls)
+	if len(commits) != 1 || commits[0] != devflow.CodejobCommitPrefix+"status transition to review [pr "+prURL10+"]" {
+		t.Errorf("commits = %q, want exactly the status transition (it carries REVIEWED_COMMIT too)", commits)
+	}
+}
+
+// P2 + M1-yes: a new agent commit since the last review is marked and recorded.
+func TestPull_ReviewPrintsReportAndRecordsNewMark(t *testing.T) {
+	planIn(t, "STATUS: review\nPR: "+prURL10+"\nREVIEWED_COMMIT: "+sha("a9013a7")+"\n")
+	runner, calls := pr10().repo()
+	job := devflow.NewCodeJob()
+	job.SetRunner(runner)
+
+	out, err := job.Pull()
+	if err != nil {
+		t.Fatalf("Pull: %v", err)
+	}
+	if !strings.HasPrefix(out, "✅ fast-forwarded feat-x\n") || !strings.Contains(out, "🆕 034c3ea") || strings.Contains(out, "🆕 a9013a7") {
+		t.Errorf("output:\n%s", out)
+	}
+	if got := readMeta(t).ReviewedCommit; got != sha("034c3ea") {
+		t.Errorf("ReviewedCommit = %q, want the newest agent commit", got)
+	}
+	commits := commitMessages(*calls)
+	if len(commits) != 1 || commits[0] != devflow.CodejobCommitPrefix+"reviewed up to 034c3ea" {
+		t.Errorf("commits = %q", commits)
+	}
+	if !strings.Contains(strings.Join(*calls, "\n"), "git push") {
+		t.Error("the review mark must be pushed")
+	}
+}
+
+// P2 + M1-no: nothing new, nothing to record.
+func TestPull_ReviewWithNothingNewDoesNotCommit(t *testing.T) {
+	planIn(t, "STATUS: review\nPR: "+prURL10+"\nREVIEWED_COMMIT: "+sha("034c3ea")+"\n")
+	runner, calls := pr10().repo()
+	job := devflow.NewCodeJob()
+	job.SetRunner(runner)
+
+	out, err := job.Pull()
+	if err != nil {
+		t.Fatalf("Pull: %v", err)
+	}
+	if !strings.Contains(out, "Commits on feat-x") || strings.Contains(out, markNewForTest) {
+		t.Errorf("output:\n%s", out)
+	}
+	if commits := commitMessages(*calls); len(commits) != 0 {
+		t.Errorf("nothing new, yet commits = %q", commits)
+	}
+}
+
+const markNewForTest = "🆕"
+
+// A report error never hides the status, and never moves the mark.
+func TestPull_ReportErrorKeepsStatusAndMark(t *testing.T) {
+	planIn(t, "STATUS: review\nPR: "+prURL10+"\nREVIEWED_COMMIT: "+sha("a9013a7")+"\n")
+	p := pr10()
+	p.fail = "log"
+	runner, calls := p.repo()
+	job := devflow.NewCodeJob()
+	job.SetRunner(runner)
+
+	out, err := job.Pull()
+	if err != nil {
+		t.Fatalf("Pull: %v", err)
+	}
+	if !strings.HasPrefix(out, "✅ fast-forwarded feat-x") || !strings.Contains(out, "⚠ could not list commits:") {
+		t.Errorf("output:\n%s", out)
+	}
+	if got := readMeta(t).ReviewedCommit; got != sha("a9013a7") {
+		t.Errorf("ReviewedCommit moved to %q", got)
+	}
+	if commits := commitMessages(*calls); len(commits) != 0 {
+		t.Errorf("commits = %q", commits)
+	}
+}
+
+// closeWith runs Close on a plan in review and reports whether the publisher ran.
+func closeWith(t *testing.T, frontmatter string, p *fakePR) (string, error, bool) {
+	t.Helper()
+	planIn(t, "STATUS: review\nPR: "+prURL10+"\n"+frontmatter)
+	t.Setenv("GH_TOKEN", "dummy")
+	runner, _ := p.repo()
+	published := false
+	job := devflow.NewCodeJob()
+	job.SetRunner(runner)
+	job.SetPublisher(&MockPublisher{PublishFn: func(string, string, bool, bool, bool, bool, bool, bool) (gitmod.PushResult, error) {
+		published = true
+		return gitmod.PushResult{Summary: "published"}, nil
+	}})
+	out, err := job.Close("feat: x", "", false)
+	return out, err, published
+}
+
+func TestClose_RefusesWithoutRecordedReview(t *testing.T) {
+	_, err, published := closeWith(t, "", pr10())
+	if err == nil || !strings.Contains(err.Error(), "no review recorded") || published {
+		t.Fatalf("err = %v, published = %v", err, published)
+	}
+}
+
+func TestClose_RefusesNewAgentCommits(t *testing.T) {
+	_, err, published := closeWith(t, "REVIEWED_COMMIT: "+sha("a9013a7")+"\n", pr10())
+	if err == nil || !strings.Contains(err.Error(), "1 new agent commit(s) since your last review") || published {
+		t.Fatalf("err = %v, published = %v", err, published)
+	}
+}
+
+func TestClose_MergesWhenReviewIsCurrent(t *testing.T) {
+	out, err, published := closeWith(t, "REVIEWED_COMMIT: "+sha("034c3ea")+"\n", pr10())
+	if err != nil || !published || out != "published" {
+		t.Fatalf("out = %q, err = %v, published = %v", out, err, published)
+	}
+}
+
+func TestClose_ReportErrorBlocksMerge(t *testing.T) {
+	p := pr10()
+	p.fail = "log"
+	_, err, published := closeWith(t, "REVIEWED_COMMIT: "+sha("034c3ea")+"\n", p)
+	if err == nil || !strings.Contains(err.Error(), "could not list PR commits") || published {
+		t.Fatalf("err = %v, published = %v", err, published)
+	}
+}

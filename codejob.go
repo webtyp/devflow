@@ -61,6 +61,9 @@ func (c *CodeJob) SetLog(fn func(...any)) {
 	}
 }
 
+// SetHTTPClient sets the client used to talk to the Jules API (default: &http.Client{}).
+func (c *CodeJob) SetHTTPClient(client HTTPClient) {}
+
 // SetRunner sets the command runner (mainly for testing).
 func (c *CodeJob) SetRunner(r gitmod.Runner) {
 	if r != nil {

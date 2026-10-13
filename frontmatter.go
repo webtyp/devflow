@@ -12,31 +12,33 @@ import (
 
 // PlanMeta holds the parsed frontmatter of a docs/PLAN.md file.
 type PlanMeta struct {
-	Message       string // required: commit message used when closing the loop
-	Tag           string // optional: explicit version tag (e.g. "v0.1.0")
-	Executor      string // optional: agent that implements (default "jules")
-	Reviewer      string // optional: agent that reviews (default "none")
-	Corrector     string // optional: agent that applies review feedback (default: executor)
-	ReviewGuide   string // optional: path to extra review criteria
-	Status        string // optional: dispatch -> running -> reviewing -> review
-	Session       string // optional: executor session id
-	ReviewSession string // optional: reviewer session id
-	Round         int    // optional: executor<->reviewer round count (capped, default 3)
-	PR            string // optional: URL of the PR opened by the executor
+	Message        string // required: commit message used when closing the loop
+	Tag            string // optional: explicit version tag (e.g. "v0.1.0")
+	Executor       string // optional: agent that implements (default "jules")
+	Reviewer       string // optional: agent that reviews (default "none")
+	Corrector      string // optional: agent that applies review feedback (default: executor)
+	ReviewGuide    string // optional: path to extra review criteria
+	Status         string // optional: dispatch -> running -> reviewing -> review
+	Session        string // optional: executor session id
+	ReviewSession  string // optional: reviewer session id
+	Round          int    // optional: executor<->reviewer round count (capped, default 3)
+	PR             string // optional: URL of the PR opened by the executor
+	ReviewedCommit string // machine-only: the last agent commit a reviewer was shown
 }
 
 const (
-	FrontmatterKeyPlan          = "PLAN"           // required: commit message used when closing the loop
-	FrontmatterKeyTag           = "TAG"            // optional: explicit version tag
-	FrontmatterKeyExecutor      = "EXECUTOR"       // optional: executor agent
-	FrontmatterKeyReviewer      = "REVIEWER"       // optional: reviewer agent
-	FrontmatterKeyCorrector     = "CORRECTOR"      // optional: corrector agent
-	FrontmatterKeyReviewGuide   = "REVIEW_GUIDE"   // optional: path to review guidelines
-	FrontmatterKeyStatus        = "STATUS"         // optional: orchestrator status
-	FrontmatterKeySession       = "SESSION"        // optional: executor session ID
-	FrontmatterKeyReviewSession = "REVIEW_SESSION" // optional: reviewer session ID
-	FrontmatterKeyRound         = "ROUND"          // optional: round count
-	FrontmatterKeyPR            = "PR"             // optional: pull request URL
+	FrontmatterKeyPlan           = "PLAN"            // required: commit message used when closing the loop
+	FrontmatterKeyTag            = "TAG"             // optional: explicit version tag
+	FrontmatterKeyExecutor       = "EXECUTOR"        // optional: executor agent
+	FrontmatterKeyReviewer       = "REVIEWER"        // optional: reviewer agent
+	FrontmatterKeyCorrector      = "CORRECTOR"       // optional: corrector agent
+	FrontmatterKeyReviewGuide    = "REVIEW_GUIDE"    // optional: path to review guidelines
+	FrontmatterKeyStatus         = "STATUS"          // optional: orchestrator status
+	FrontmatterKeySession        = "SESSION"         // optional: executor session ID
+	FrontmatterKeyReviewSession  = "REVIEW_SESSION"  // optional: reviewer session ID
+	FrontmatterKeyRound          = "ROUND"           // optional: round count
+	FrontmatterKeyPR             = "PR"              // optional: pull request URL
+	FrontmatterKeyReviewedCommit = "REVIEWED_COMMIT" // machine-only: last agent commit a reviewer was shown
 )
 
 // frontmatterHelp is appended to every frontmatter error so the fix is obvious from the
