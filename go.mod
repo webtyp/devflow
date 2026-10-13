@@ -27,7 +27,7 @@ require (
 	webtyp.com/router v0.4.2 // indirect
 	webtyp.com/time v0.5.7 // indirect
 	webtyp.com/unixid v0.3.0 // indirect
-	webtyp.com/webauthn v0.1.3 // indirect
+	webtyp.com/webauthn v0.1.5 // indirect
 )
 
 require (
