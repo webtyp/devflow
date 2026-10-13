@@ -90,7 +90,7 @@ type fakeCommit struct {
 }
 
 // fakePR answers the gh/git commands PRCommitReport runs. fail names a step that errors:
-// "view", "fetch", "log", "show" or "diff".
+// "view", "fetch", "log", "show" (numstat), "deleted" or "diff".
 type fakePR struct {
 	commits []fakeCommit
 	net     string
@@ -127,7 +127,7 @@ func (p *fakePR) runner() *fakeRunner {
 			for _, c := range p.commits {
 				if sha(c.short) == target {
 					if strings.Contains(strings.Join(args, " "), "--diff-filter=D") {
-						return c.deleted, errStep("show")
+						return c.deleted, errStep("deleted")
 					}
 					return c.numstat, errStep("show")
 				}
@@ -178,7 +178,10 @@ func TestPRCommitReport_FetchError(t *testing.T)  { wantReportError(t, "fetch", 
 func TestPRCommitReport_LogError(t *testing.T) {
 	wantReportError(t, "log", "could not list PR commits")
 }
-func TestPRCommitReport_ShowError(t *testing.T) { wantReportError(t, "show", "could not read commit") }
+func TestPRCommitReport_ShowError(t *testing.T) {
+	wantReportError(t, "show", "could not read commit")
+	wantReportError(t, "deleted", "could not read commit")
+}
 
 func TestPRCommitReport_SeparatesCodejobCommits(t *testing.T) {
 	r := report(t, pr10(), "")
@@ -504,5 +507,98 @@ func TestClose_ReportErrorBlocksMerge(t *testing.T) {
 	_, err, published := closeWith(t, "REVIEWED_COMMIT: "+sha("034c3ea")+"\n", p)
 	if err == nil || !strings.Contains(err.Error(), "could not list PR commits") || published {
 		t.Fatalf("err = %v, published = %v", err, published)
+	}
+}
+
+func TestPRCommitReport_DiffError(t *testing.T) {
+	wantReportError(t, "diff", "could not list PR commits")
+}
+
+// Odd answers from gh and git are refused or skipped, never misread.
+func TestPRCommitReport_MalformedAnswers(t *testing.T) {
+	oneBranch := &fakeRunner{respond: func(args []string) (string, error) { return "main\n", nil }}
+	if _, err := devflow.PRCommitReport(oneBranch, prURL10, ""); err == nil || !strings.Contains(err.Error(), "could not read PR") {
+		t.Fatalf("a single branch name must be refused, err = %v", err)
+	}
+
+	odd := &fakeRunner{respond: func(args []string) (string, error) {
+		switch args[0] {
+		case "pr":
+			return "main feat-x", nil
+		case "log":
+			return "not a log line\nabc\t" + julesBot + "\tfeat: short sha\n", nil
+		case "show":
+			if strings.Contains(strings.Join(args, " "), "--numstat") {
+				return "garbage\n2\t0\tok.go\n", nil
+			}
+			return "", nil
+		case "diff":
+			return "2\t0\tok.go\n", nil
+		}
+		return "", nil
+	}}
+	r, err := devflow.PRCommitReport(odd, prURL10, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Commits) != 1 || r.Commits[0].Short != "abc" || r.Commits[0].Files != 1 || r.Commits[0].Added != 2 {
+		t.Fatalf("commits = %+v", r.Commits)
+	}
+}
+
+// P1 with a failing report: the PR still becomes ready, the mark stays empty.
+func TestPull_PRReadyReportErrorKeepsStatus(t *testing.T) {
+	planIn(t, "STATUS: running\nSESSION: S1\nREVIEWER: none\n")
+	t.Setenv("JULES_API_KEY", "key")
+	p := pr10()
+	p.fail = "log"
+	runner, calls := p.repo()
+	job := devflow.NewCodeJob()
+	job.SetRunner(runner)
+	job.SetHTTPClient(&routedJulesClient{routes: map[string]string{
+		"GET " + julesSession: `{"id":"S1","state":"COMPLETED","outputs":[{"pullRequest":{"url":"` + prURL10 + `","title":"t"}}]}`,
+	}})
+	out, err := job.Pull()
+	if err != nil {
+		t.Fatalf("Pull: %v", err)
+	}
+	if !strings.Contains(out, "✅ Jules: PR ready") || !strings.Contains(out, "⚠ could not list commits:") {
+		t.Errorf("output:\n%s", out)
+	}
+	if meta := readMeta(t); meta.Status != "review" || meta.ReviewedCommit != "" {
+		t.Errorf("meta = %+v", meta)
+	}
+	if commits := commitMessages(*calls); len(commits) != 1 {
+		t.Errorf("commits = %q, want only the status transition", commits)
+	}
+}
+
+// While a reviewer agent reviews, pull says so and still lists the commits.
+func TestPull_ReviewingShowsReport(t *testing.T) {
+	planIn(t, "STATUS: reviewing\nPR: "+prURL10+"\nREVIEWED_COMMIT: "+sha("034c3ea")+"\n")
+	runner, _ := pr10().repo()
+	job := devflow.NewCodeJob()
+	job.SetRunner(runner)
+	out, err := job.Pull()
+	if err != nil || !strings.HasPrefix(out, "⏳ reviewer is reviewing the PR...\n") || !strings.Contains(out, "Commits on feat-x") {
+		t.Fatalf("out = %q, err = %v", out, err)
+	}
+}
+
+// The mark cannot be recorded (plan not writable): pull says so instead of pretending.
+func TestPull_ReviewMarkWriteError(t *testing.T) {
+	planIn(t, "STATUS: review\nPR: "+prURL10+"\nREVIEWED_COMMIT: "+sha("a9013a7")+"\n")
+	if err := os.Chmod(devflow.DefaultIssuePromptPath, 0444); err != nil {
+		t.Fatal(err)
+	}
+	runner, calls := pr10().repo()
+	job := devflow.NewCodeJob()
+	job.SetRunner(runner)
+	out, err := job.Pull()
+	if err == nil || !strings.Contains(out, "Commits on feat-x") {
+		t.Fatalf("out = %q, err = %v; want the report and the write error", out, err)
+	}
+	if commits := commitMessages(*calls); len(commits) != 0 {
+		t.Errorf("nothing was recorded, yet commits = %q", commits)
 	}
 }

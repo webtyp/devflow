@@ -85,17 +85,18 @@ func metaFromMap(kv map[string]string) (PlanMeta, error) {
 	}
 	round, _ := strconv.Atoi(kv[FrontmatterKeyRound])
 	return PlanMeta{
-		Message:       message,
-		Tag:           kv[FrontmatterKeyTag],
-		Executor:      kv[FrontmatterKeyExecutor],
-		Reviewer:      kv[FrontmatterKeyReviewer],
-		Corrector:     kv[FrontmatterKeyCorrector],
-		ReviewGuide:   kv[FrontmatterKeyReviewGuide],
-		Status:        kv[FrontmatterKeyStatus],
-		Session:       kv[FrontmatterKeySession],
-		ReviewSession: kv[FrontmatterKeyReviewSession],
-		Round:         round,
-		PR:            kv[FrontmatterKeyPR],
+		Message:        message,
+		Tag:            kv[FrontmatterKeyTag],
+		Executor:       kv[FrontmatterKeyExecutor],
+		Reviewer:       kv[FrontmatterKeyReviewer],
+		Corrector:      kv[FrontmatterKeyCorrector],
+		ReviewGuide:    kv[FrontmatterKeyReviewGuide],
+		Status:         kv[FrontmatterKeyStatus],
+		Session:        kv[FrontmatterKeySession],
+		ReviewSession:  kv[FrontmatterKeyReviewSession],
+		Round:          round,
+		PR:             kv[FrontmatterKeyPR],
+		ReviewedCommit: kv[FrontmatterKeyReviewedCommit],
 	}, nil
 }
 
@@ -211,6 +212,9 @@ func SerializeFrontmatter(meta PlanMeta) string {
 	}
 	if meta.PR != "" {
 		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeyPR, meta.PR))
+	}
+	if meta.ReviewedCommit != "" {
+		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeyReviewedCommit, meta.ReviewedCommit))
 	}
 	sb.WriteString("---\n")
 	return sb.String()

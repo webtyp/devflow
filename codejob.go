@@ -43,6 +43,7 @@ type CodeJob struct {
 	publisher Publisher
 	releaseFn func(tag string) error
 	runner    gitmod.Runner
+	http      HTTPClient
 }
 
 // NewCodeJob creates a CodeJob with the given ordered drivers.
@@ -51,6 +52,7 @@ func NewCodeJob(drivers ...CodeJobDriver) *CodeJob {
 		drivers: drivers,
 		log:     func(...any) {},
 		runner:  gitmod.RealRunner{},
+		http:    &http.Client{},
 	}
 }
 
@@ -62,7 +64,11 @@ func (c *CodeJob) SetLog(fn func(...any)) {
 }
 
 // SetHTTPClient sets the client used to talk to the Jules API (default: &http.Client{}).
-func (c *CodeJob) SetHTTPClient(client HTTPClient) {}
+func (c *CodeJob) SetHTTPClient(client HTTPClient) {
+	if client != nil {
+		c.http = client
+	}
+}
 
 // SetRunner sets the command runner (mainly for testing).
 func (c *CodeJob) SetRunner(r gitmod.Runner) {
@@ -207,10 +213,11 @@ func (c *CodeJob) Pull() (string, error) {
 			return "", err
 		}
 
+		statusLine := fmt.Sprintf(msgFastForwarded, branch)
 		if status == "reviewing" {
-			return "⏳ reviewer is reviewing the PR...", nil
+			statusLine = msgReviewerReviewing
 		}
-		return fmt.Sprintf("✅ fast-forwarded %s", branch), nil
+		return c.reportAndMark(statusLine, meta)
 	}
 
 	return "", fmt.Errorf("codejob: unknown plan status: %s", status)
@@ -234,6 +241,9 @@ func (c *CodeJob) Close(message, tag string, isRelease bool) (string, error) {
 
 	if c.publisher == nil {
 		return "", fmt.Errorf("no publisher configured")
+	}
+	if err := c.reviewIsCurrent(meta); err != nil {
+		return "", err
 	}
 	res, err := MergeAndPublish(c.runner, c.publisher, message, tag)
 	if err != nil {
@@ -263,7 +273,7 @@ func (c *CodeJob) checkStatus(meta PlanMeta) (string, error) {
 		return "", err
 	}
 
-	msg, prURL, done, err := JulesSessionState(sessionID, apiKey, &http.Client{})
+	msg, prURL, done, err := JulesSessionState(sessionID, apiKey, c.http)
 	if err != nil {
 		return "", err
 	}
@@ -272,6 +282,14 @@ func (c *CodeJob) checkStatus(meta PlanMeta) (string, error) {
 		// Checkout PR branch
 		if _, err := CheckoutPRBranch(c.runner, prURL); err != nil {
 			return msg, fmt.Errorf("checkout PR branch failed: %w", err)
+		}
+
+		// The report, and the review mark, travel in the same commit as the status transition.
+		if report, err := PRCommitReport(c.runner, prURL, meta.ReviewedCommit); err != nil {
+			msg += "\n" + fmt.Sprintf(msgReportFailed, err)
+		} else {
+			meta.ReviewedCommit = report.LastAgent
+			msg += "\n" + report.String()
 		}
 
 		// Update PLAN.md frontmatter status
@@ -301,7 +319,7 @@ func (c *CodeJob) Reply(text string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := JulesSendMessage(sessionID, apiKey, text, &http.Client{}); err != nil {
+	if err := JulesSendMessage(sessionID, apiKey, text, c.http); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("✉ Sent to Jules (session %s). Run 'codejob' later to check it.", sessionID), nil
@@ -313,7 +331,7 @@ func (c *CodeJob) Approve() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := JulesApprovePlan(sessionID, apiKey, &http.Client{}); err != nil {
+	if err := JulesApprovePlan(sessionID, apiKey, c.http); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("✅ Plan approved (session %s). Run 'codejob' later to check it.", sessionID), nil

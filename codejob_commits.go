@@ -1,6 +1,7 @@
 package devflow
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -212,4 +213,60 @@ func (r CommitReport) String() string {
 		fmt.Sprintf(reportNet, r.Base, fmt.Sprintf(reportStats, r.NetFiles, r.NetAdded, r.NetRemoved)),
 		reportInspect)
 	return strings.Join(lines, "\n")
+}
+
+// Pull and Close messages around the commit report.
+const (
+	msgFastForwarded     = "✅ fast-forwarded %s"
+	msgReviewerReviewing = "⏳ reviewer is reviewing the PR..."
+	msgReportFailed      = markWarn + " could not list commits: %v"
+	errNoPendingPR       = "codejob: no pending PR found in PLAN.md frontmatter"
+	errNoReview          = "codejob: no review recorded; run codejob pull and review the commits first"
+	errNewAgentCommits   = "codejob: %d new agent commit(s) since your last review; run codejob pull"
+)
+
+// reportAndMark appends the commit report to statusLine and records the newest agent commit as
+// reviewed (one codejob commit, pushed) when it moved. A report error never hides the status and
+// never moves the mark.
+func (c *CodeJob) reportAndMark(statusLine string, meta PlanMeta) (string, error) {
+	report, err := PRCommitReport(c.runner, meta.PR, meta.ReviewedCommit)
+	if err != nil {
+		return statusLine + "\n" + fmt.Sprintf(msgReportFailed, err), nil
+	}
+	out := statusLine + "\n" + report.String()
+	if report.LastAgent == "" || report.LastAgent == meta.ReviewedCommit {
+		return out, nil
+	}
+	meta.ReviewedCommit = report.LastAgent
+	if err := WritePlanMeta(DefaultIssuePromptPath, meta); err != nil {
+		return out, err
+	}
+	_, _ = c.runner.Run("git", "add", DefaultIssuePromptPath)
+	_, _ = c.runner.Run("git", "commit", "-m", fmt.Sprintf(commitMsgReviewedUpTo, shortSHA(report.LastAgent)))
+	_, _ = c.runner.Run("git", "push")
+	return out, nil
+}
+
+// reviewIsCurrent refuses to close a PR whose newest agent commit was never shown to the reviewer.
+func (c *CodeJob) reviewIsCurrent(meta PlanMeta) error {
+	if meta.PR == "" {
+		return errors.New(errNoPendingPR)
+	}
+	if meta.ReviewedCommit == "" {
+		return errors.New(errNoReview)
+	}
+	report, err := PRCommitReport(c.runner, meta.PR, meta.ReviewedCommit)
+	if err != nil {
+		return err
+	}
+	if report.LastAgent == meta.ReviewedCommit {
+		return nil
+	}
+	n := 0
+	for _, c := range report.Commits {
+		if c.New {
+			n++
+		}
+	}
+	return fmt.Errorf(errNewAgentCommits, n)
 }
