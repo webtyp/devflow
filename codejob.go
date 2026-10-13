@@ -284,7 +284,7 @@ func (c *CodeJob) checkStatus(meta PlanMeta) (string, error) {
 
 		// Commit transition to git
 		_, _ = c.runner.Run("git", "add", DefaultIssuePromptPath)
-		commitMsg := fmt.Sprintf("chore: status transition to %s [pr %s]", meta.Status, prURL)
+		commitMsg := fmt.Sprintf(commitMsgPRReady, meta.Status, prURL)
 		_, _ = c.runner.Run("git", "commit", "-m", commitMsg)
 		_, _ = c.runner.Run("git", "push")
 	}
@@ -412,7 +412,7 @@ func (c *CodeJob) Send(issuePromptPath string) (string, error) {
 
 	// PUBLISH BEFORE SEND (Stage 2, step 2.3)
 	if c.publisher != nil {
-		_, err := c.publisher.Publish("chore: sync before codejob dispatch", "", true, true, true, true, true, true)
+		_, err := c.publisher.Publish(commitMsgSync, "", true, true, true, true, true, true)
 		if err != nil {
 			return "", fmt.Errorf("failed to sync repo before dispatch: %w", err)
 		}
@@ -438,7 +438,7 @@ func (c *CodeJob) Send(issuePromptPath string) (string, error) {
 
 					// Commit transition to git
 					_, _ = c.runner.Run("git", "add", issuePromptPath)
-					commitMsg := fmt.Sprintf("chore: status transition to running [session %s]", id)
+					commitMsg := fmt.Sprintf(commitMsgRunning, id)
 					_, _ = c.runner.Run("git", "commit", "-m", commitMsg)
 					_, _ = c.runner.Run("git", "push")
 				}
@@ -496,7 +496,7 @@ func (c *CodeJob) RunCI(phase string) error {
 				return err
 			}
 			_, _ = c.runner.Run("git", "add", DefaultIssuePromptPath)
-			_, _ = c.runner.Run("git", "commit", "-m", "chore: no reviewer set, status to review")
+			_, _ = c.runner.Run("git", "commit", "-m", commitMsgNoReviewer)
 			_, _ = c.runner.Run("git", "push")
 			return nil
 		}
@@ -510,7 +510,7 @@ func (c *CodeJob) RunCI(phase string) error {
 			return err
 		}
 		_, _ = c.runner.Run("git", "add", DefaultIssuePromptPath)
-		_, _ = c.runner.Run("git", "commit", "-m", "chore: status transition to reviewing")
+		_, _ = c.runner.Run("git", "commit", "-m", commitMsgReviewing)
 		_, _ = c.runner.Run("git", "push")
 		return nil
 
@@ -535,7 +535,7 @@ func (c *CodeJob) RunCI(phase string) error {
 				return err
 			}
 			_, _ = c.runner.Run("git", "add", DefaultIssuePromptPath)
-			_, _ = c.runner.Run("git", "commit", "-m", "chore: reviewer approved, status to review")
+			_, _ = c.runner.Run("git", "commit", "-m", commitMsgApproved)
 			_, _ = c.runner.Run("git", "push")
 			return nil
 		}
@@ -549,7 +549,7 @@ func (c *CodeJob) RunCI(phase string) error {
 					return err
 				}
 				_, _ = c.runner.Run("git", "add", DefaultIssuePromptPath)
-				_, _ = c.runner.Run("git", "commit", "-m", "chore: round cap exceeded, handing over to human")
+				_, _ = c.runner.Run("git", "commit", "-m", commitMsgRoundCap)
 				_, _ = c.runner.Run("git", "push")
 				return nil
 			}
@@ -560,7 +560,7 @@ func (c *CodeJob) RunCI(phase string) error {
 				return err
 			}
 			_, _ = c.runner.Run("git", "add", DefaultIssuePromptPath)
-			commitMsg := fmt.Sprintf("chore: changes requested, re-dispatching to corrector [round %d]", meta.Round)
+			commitMsg := fmt.Sprintf(commitMsgRedispatch, meta.Round)
 			_, _ = c.runner.Run("git", "commit", "-m", commitMsg)
 			_, _ = c.runner.Run("git", "push")
 			return nil
