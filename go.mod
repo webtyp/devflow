@@ -10,7 +10,7 @@ require (
 	webtyp.com/gorun v0.0.27
 	webtyp.com/keyring v0.2.4
 	webtyp.com/markdown v0.0.3
-	webtyp.com/mcp v0.3.3
+	webtyp.com/mcp v0.3.4
 	webtyp.com/model v0.2.3
 	webtyp.com/modfind v0.0.11
 )
@@ -24,7 +24,7 @@ require (
 	webtyp.com/filepath v0.1.0 // indirect
 	webtyp.com/ghaction v0.1.2 // indirect
 	webtyp.com/json v0.5.30 // indirect
-	webtyp.com/router v0.4.2 // indirect
+	webtyp.com/router v0.4.3 // indirect
 	webtyp.com/time v0.5.7 // indirect
 	webtyp.com/unixid v0.3.0 // indirect
 	webtyp.com/webauthn v0.1.6 // indirect
