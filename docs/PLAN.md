@@ -2,6 +2,8 @@
 PLAN: "fix(codejob): close resumes a PR GitHub already merged instead of failing on the deleted branch"
 EXECUTOR: jules
 REVIEWER: none
+STATUS: running
+SESSION: 3966779266703082162
 ---
 
 > Read AGENTS.md at the repo root before any change.
