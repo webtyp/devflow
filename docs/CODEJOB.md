@@ -154,6 +154,7 @@ codejob close 'feat: implemented feature' v0.3.0
 Review corrections on the PR branch reach the merge either way: uncommitted changes are
 committed as "review: corrections before merge", and the branch is always pushed before
 `gh pr merge`, so corrections you already committed are not lost.
+`codejob close` on a PR that GitHub already merged resumes: it pulls, deletes `docs/PLAN.md` and publishes; the review check is skipped because nothing is left to review.
 
 ### Cloud (one-time setup, then zero-touch)
 

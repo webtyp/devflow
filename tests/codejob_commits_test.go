@@ -95,6 +95,7 @@ type fakePR struct {
 	commits []fakeCommit
 	net     string
 	fail    string
+	state   string
 }
 
 const (
@@ -320,6 +321,11 @@ func (p *fakePR) repo() (*fakeRunner, *[]string) {
 		switch {
 		case args[0] == "pr" && args[1] == "view" && strings.Contains(joined, "headRefName") && !strings.Contains(joined, "baseRefName"):
 			return "feat-x\n", nil
+		case args[0] == "pr" && args[1] == "view" && strings.Contains(joined, "--json") && strings.Contains(joined, "state"):
+			if p.state != "" {
+				return p.state + "\n", nil
+			}
+			return "OPEN\n", nil
 		case args[0] == "pr" && args[1] == "merge":
 			return "", nil
 		case args[0] == "fetch" && len(args) == 2: // fetch --all / fetch origin <branch>
@@ -496,6 +502,19 @@ func TestClose_RefusesNewAgentCommits(t *testing.T) {
 
 func TestClose_MergesWhenReviewIsCurrent(t *testing.T) {
 	out, err, published := closeWith(t, "REVIEWED_COMMIT: "+sha("034c3ea")+"\n", pr10())
+	if err != nil || !published || out != "published" {
+		t.Fatalf("out = %q, err = %v, published = %v", out, err, published)
+	}
+}
+
+func TestClose_ResumesWhenPRAlreadyMerged(t *testing.T) {
+	p := pr10()
+	// GitHub already merged it
+	p.state = "MERGED"
+	// and the branch is gone (git fetch fails)
+	p.fail = "fetch"
+
+	out, err, published := closeWith(t, "", p)
 	if err != nil || !published || out != "published" {
 		t.Fatalf("out = %q, err = %v, published = %v", out, err, published)
 	}
