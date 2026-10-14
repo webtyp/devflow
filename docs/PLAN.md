@@ -2,8 +2,10 @@
 PLAN: "fix(codejob): close resumes a PR GitHub already merged instead of failing on the deleted branch"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 3966779266703082162
+PR: https://github.com/webtyp/devflow/pull/48
+REVIEWED_COMMIT: 3a6ba1e047ba219b21ad9ffd03f327af282b66af
 ---
 
 > Read AGENTS.md at the repo root before any change.
@@ -61,3 +63,6 @@ it pulls, deletes `docs/PLAN.md` and publishes; the review check is skipped beca
 | Fix | `codejob.go` |
 | Test | `tests/codejob_commits_test.go` |
 | Docs | `docs/CODEJOB.md` |
+
+## Executor notes
+All tasks completed.

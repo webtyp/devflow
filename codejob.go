@@ -242,8 +242,10 @@ func (c *CodeJob) Close(message, tag string, isRelease bool) (string, error) {
 	if c.publisher == nil {
 		return "", fmt.Errorf("no publisher configured")
 	}
-	if err := c.reviewIsCurrent(meta); err != nil {
-		return "", err
+	if !prIsMerged(c.runner, meta.PR) {
+		if err := c.reviewIsCurrent(meta); err != nil {
+			return "", err
+		}
 	}
 	res, err := MergeAndPublish(c.runner, c.publisher, message, tag)
 	if err != nil {
