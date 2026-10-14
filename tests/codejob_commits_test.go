@@ -509,14 +509,28 @@ func TestClose_MergesWhenReviewIsCurrent(t *testing.T) {
 
 func TestClose_ResumesWhenPRAlreadyMerged(t *testing.T) {
 	p := pr10()
-	// GitHub already merged it
-	p.state = "MERGED"
-	// and the branch is gone (git fetch fails)
-	p.fail = "fetch"
+	p.state = "MERGED" // GitHub already merged it
+	p.fail = "fetch"   // and its branch is gone: fetching it fails
 
-	out, err, published := closeWith(t, "", p)
+	planIn(t, "STATUS: review\nPR: "+prURL10+"\n")
+	t.Setenv("GH_TOKEN", "dummy")
+	runner, calls := p.repo()
+	published := false
+	job := devflow.NewCodeJob()
+	job.SetRunner(runner)
+	job.SetPublisher(&MockPublisher{PublishFn: func(string, string, bool, bool, bool, bool, bool, bool) (gitmod.PushResult, error) {
+		published = true
+		return gitmod.PushResult{Summary: "published"}, nil
+	}})
+
+	out, err := job.Close("feat: x", "", false)
 	if err != nil || !published || out != "published" {
 		t.Fatalf("out = %q, err = %v, published = %v", out, err, published)
+	}
+	for _, c := range *calls {
+		if strings.Contains(c, "pr merge") {
+			t.Errorf("an already-merged PR must not be merged again: %q", c)
+		}
 	}
 }
 
