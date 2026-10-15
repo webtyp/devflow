@@ -9,6 +9,7 @@ require (
 	webtyp.com/gorelease v0.1.2
 	webtyp.com/gorun v0.0.27
 	webtyp.com/keyring v0.2.8
+	webtyp.com/lang v0.1.6
 	webtyp.com/markdown v0.0.3
 	webtyp.com/mcp v0.3.4
 	webtyp.com/model v0.2.3
@@ -34,5 +35,5 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	webtyp.com/context v0.0.23
 	webtyp.com/fmt v1.0.0 // indirect
-	webtyp.com/wizard v0.0.29
+	webtyp.com/wizard v0.0.30
 )

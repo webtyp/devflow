@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"webtyp.com/context"
+	"webtyp.com/lang"
 	keyring "webtyp.com/keyring/auto"
 	"webtyp.com/wizard"
 	"golang.org/x/term"
@@ -384,7 +385,7 @@ func (c *CodeJob) runSetupWizard() error {
 func (c *CodeJob) GetSteps() []*wizard.Step {
 	return []*wizard.Step{
 		{
-			LabelText: "Jules API Key (get yours at " + termLink(julesAPIKeyURL, julesAPIKeyURL) + ")",
+			LabelText: lang.Text("Jules API Key (get yours at " + termLink(julesAPIKeyURL, julesAPIKeyURL) + ")"),
 			DefaultFn: func(ctx *context.Context) string { return "" },
 			OnInputFn: func(in string, ctx *context.Context) (bool, error) {
 				in = strings.TrimSpace(in)
