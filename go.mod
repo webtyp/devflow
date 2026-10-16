@@ -8,7 +8,7 @@ require (
 	webtyp.com/git v0.0.8
 	webtyp.com/gorelease v0.1.2
 	webtyp.com/gorun v0.0.27
-	webtyp.com/keyring v0.2.8
+	webtyp.com/keyring v0.2.9
 	webtyp.com/lang v0.1.6
 	webtyp.com/markdown v0.0.3
 	webtyp.com/mcp v0.3.4
