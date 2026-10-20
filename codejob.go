@@ -405,13 +405,11 @@ func (c *CodeJob) GetSteps() []*wizard.Step {
 	}
 }
 
-// dispatchPrompt is what the executor receives. A question from the executor pauses its session
-// until a human answers, which stalls the plan loop, so it is told never to stop before the PR.
-const dispatchPrompt = "Execute the implementation plan described in %s: every stage, to the end, then open the pull request. " +
-	"Work autonomously. Never ask questions, never wait for approval or feedback, and never stop before the pull request exists. " +
-	"If something is unclear or cannot be done, choose the option most consistent with the plan, " +
-	"record what you did not do and why under a final \"## Executor notes\" heading of that plan file and in the pull request description, and continue. " +
-	"Never edit the frontmatter block between the first two \"---\" lines of that plan file: the workflow owns it."
+// dispatchPrompt is what the executor receives: short, because agents follow a short instruction and drift on a long
+// one. The plan file carries the details; a question pauses the session and stalls the loop, so asking is ruled out.
+const dispatchPrompt = "Implement %s completely, then open the pull request. " +
+	"Do not ask questions or wait for approval: anything you could not do goes under \"## Executor notes\" in that file and in the pull request. " +
+	"Do not edit its frontmatter."
 
 // Send validates issuePromptPath, publishes pending changes, then tries each
 // driver in order until one succeeds. Returns an error if the file is missing,
