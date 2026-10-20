@@ -19,6 +19,7 @@ require (
 require (
 	webtyp.com/await v0.1.2 // indirect
 	webtyp.com/base64 v0.0.6 // indirect
+	webtyp.com/calendar v0.1.0 // indirect
 	webtyp.com/dbus v0.1.1 // indirect
 	webtyp.com/escape v0.1.0 // indirect
 	webtyp.com/fetch v0.1.29 // indirect
@@ -26,8 +27,8 @@ require (
 	webtyp.com/ghaction v0.1.2 // indirect
 	webtyp.com/json v0.5.30 // indirect
 	webtyp.com/router v0.4.3 // indirect
-	webtyp.com/time v0.5.7 // indirect
-	webtyp.com/unixid v0.3.0 // indirect
+	webtyp.com/time v0.6.2 // indirect
+	webtyp.com/unixid v0.3.1 // indirect
 	webtyp.com/webauthn v0.1.6 // indirect
 )
 
