@@ -59,7 +59,15 @@ gotest -bench .     # Run benchmarks
 5. Auto-detects and runs WASM tests in a real browser (`wasmbrowsertest`). Detection is by **build tag, not filename**: the WASM suite activates when a package has a test file present in the `GOOS=js GOARCH=wasm` build but absent from the native build — i.e., gated by `//go:build wasm`. The filename is irrelevant.
 Submodules (a subdirectory with its own `go.mod`, e.g. `tests/`) get the same treatment: native tests **and** their own WASM detection and run. A WASM failure in a submodule is reported with its path: `wasm tests ❌`. So `gotest` gives the same verdict at the repo root as inside the submodule.
 
-**Dev pass.** When any `.go` file in the module (submodules included) has a build constraint that only holds with the `dev` tag (`//go:build dev`; `!dev` does not count), the stdlib tests of the root and of every submodule run once more with `-tags dev`. That is the tag the webtyp dev environment compiles with, and debug-only code (e.g. `webtyp/auth`'s `DEV_AUTOLOGIN`) is gated on it, so without this pass it would never be tested. Reported as `dev tests ✅/❌`.
+**Destination passes.** When special files or build tags are detected, `gotest` adds passes to verify they compile and run on their target architecture.
+
+| Pass | Triggers when | Command | Label |
+|---|---|---|---|
+| **dev tests** | Any `.go` file has `//go:build dev` | `go test -tags dev ./...` | `dev tests ✅/❌` |
+| **wasm** | Any test only builds with `wasm` | `GOOS=js GOARCH=wasm go test -exec wasmbrowsertest ./...` | `wasm ✅/❌` |
+| **worker** | `web/edge.go` exists | `GOOS=js GOARCH=wasm go vet ./web` | `worker ✅/❌` |
+| **browser** | Any `.go` file has `//go:build browser` | `GOOS=js GOARCH=wasm go vet -tags browser ./web` and `go test -exec wasmbrowsertest -tags browser ./...` | `browser ✅/❌` |
+
 6. Detects slowest test (if > 2.0s)
 7. Detects WASM released function calls
 8. Updates README badges

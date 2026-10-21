@@ -2,8 +2,10 @@
 PLAN: "feat(gotest): one pass per build destination — browser tests in headless Chrome with -tags browser, Worker and browser mains vetted for js/wasm"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 18240306663496279394
+PR: https://github.com/webtyp/devflow/pull/49
+REVIEWED_COMMIT: d65b5c616ebe5ad1eed70decfddd38ca3393a4c7
 ---
 
 > Read AGENTS.md at the repo root before any change.
