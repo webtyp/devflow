@@ -2,6 +2,8 @@
 PLAN: "feat(gotest): one pass per build destination — browser tests in headless Chrome with -tags browser, Worker and browser mains vetted for js/wasm"
 EXECUTOR: jules
 REVIEWER: none
+STATUS: running
+SESSION: 18240306663496279394
 ---
 
 > Read AGENTS.md at the repo root before any change.
