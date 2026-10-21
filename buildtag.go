@@ -15,10 +15,15 @@ import (
 // DEV_AUTOLOGIN — is invisible to a default `go test ./...`.
 const devTag = "dev"
 
-// hasDevTaggedFiles reports whether any .go file under root (submodules
-// included) carries a build constraint that only holds with the dev tag set.
-// `//go:build !dev` is the default build and does not count.
-func hasDevTaggedFiles(root string) bool {
+// browserTag is the destination tag of the browser binary: only the client
+// compiler passes it (-tags browser). Files gated on it run only in js/wasm,
+// in headless Chrome.
+const browserTag = "browser"
+
+// hasTaggedFiles reports whether any .go file under root (submodules
+// included) carries a build constraint that only holds with the given tag set.
+// `//go:build !tag` is the default build and does not count.
+func hasTaggedFiles(root, tag string) bool {
 	found := false
 	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if found {
@@ -34,7 +39,7 @@ func hasDevTaggedFiles(root string) bool {
 			}
 			return nil
 		}
-		if strings.HasSuffix(path, ".go") && fileNeedsDevTag(path) {
+		if strings.HasSuffix(path, ".go") && fileNeedsTag(path, tag) {
 			found = true
 		}
 		return nil
@@ -42,11 +47,11 @@ func hasDevTaggedFiles(root string) bool {
 	return found
 }
 
-// fileNeedsDevTag reads the build constraint at the top of a Go file and
-// reports whether setting the dev tag can switch it from excluded to included.
-// Every other tag is tried both all-on and all-off, so `dev && wasm` counts
-// and `!dev` does not.
-func fileNeedsDevTag(path string) bool {
+// fileNeedsTag reads the build constraint at the top of a Go file and
+// reports whether setting the given tag can switch it from excluded to included.
+// Every other tag is tried both all-on and all-off, so `tag && wasm` counts
+// and `!tag` does not.
+func fileNeedsTag(path, tagToFind string) bool {
 	f, err := os.Open(path)
 	if err != nil {
 		return false
@@ -67,10 +72,10 @@ func fileNeedsDevTag(path string) bool {
 			return false
 		}
 		for _, others := range []bool{false, true} {
-			eval := func(dev bool) bool {
+			eval := func(hasTargetTag bool) bool {
 				return expr.Eval(func(tag string) bool {
-					if tag == devTag {
-						return dev
+					if tag == tagToFind {
+						return hasTargetTag
 					}
 					return others
 				})

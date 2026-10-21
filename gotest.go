@@ -278,7 +278,7 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 	// Dev pass: code behind //go:build dev is invisible to the run above. When
 	// the module has any, run the suite once more with -tags dev so that code
 	// stays tested instead of rotting unseen.
-	if hasDevTaggedFiles(g.rootDir) {
+	if hasTaggedFiles(g.rootDir, devTag) {
 		devOut, devFailed := g.runDevPass(timeoutFlag)
 		if devFailed {
 			addMsg(false, "dev tests")
@@ -374,6 +374,45 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 					testStatus = "Passing"
 				}
 			}
+		}
+	}
+
+	// Worker pass: web/edge.go is the Cloudflare Worker main (wasm && !browser).
+	// No test runs it, so vet it for js/wasm: that compiles the Worker and all it imports.
+	if checkFileExists(filepath.Join(g.rootDir, webDir, edgeMainFile)) {
+		out, failed := g.vetWebMain("")
+		addMsg(!failed, workerPassLabel)
+		if failed {
+			testStatus = "Failed"
+			g.consoleOutput(out)
+		}
+	}
+
+	// Browser pass: files tagged `browser` only exist in browser.wasm. Their tests
+	// run in headless Chrome with -tags browser; the browser main is vetted too.
+	if hasTaggedFiles(g.rootDir, browserTag) {
+		failed := false
+		if err := g.installWasmBrowserTest(); err != nil {
+			failed = true
+			g.consoleOutput("browser tests: wasmbrowsertest setup failed: " + err.Error())
+		}
+		if !failed && checkFileExists(filepath.Join(g.rootDir, webDir, browserMainFile)) {
+			if out, f := g.vetWebMain(browserTag); f {
+				failed = true
+				g.consoleOutput(out)
+			}
+		}
+		if !failed {
+			for _, dir := range append([]string{g.rootDir}, findSubModuleDirs(g.rootDir)...) {
+				if out, f := g.runBrowserTests(dir, runAll, timeoutSec, nil); f {
+					failed = true
+					g.consoleOutput(out)
+				}
+			}
+		}
+		addMsg(!failed, browserPassLabel)
+		if failed {
+			testStatus = "Failed"
 		}
 	}
 
@@ -604,21 +643,22 @@ func (g *Go) runCustomTests(customArgs []string, moduleName string, timeoutSec i
 		}
 	}
 
+	// Build WASM test command with custom args, filtering out -race (not supported in WASM)
+	var wasmArgs []string
+	for _, arg := range customArgs {
+		if arg != "-race" {
+			wasmArgs = append(wasmArgs, arg)
+		}
+	}
+	// Inject timeout for WASM tests too
+	if !HasTimeoutFlag(wasmArgs) {
+		wasmArgs = append(wasmArgs, timeoutFlag)
+	}
+
 	if len(wasmCustomDirs) > 0 {
 		if err := g.installWasmBrowserTest(); err != nil {
 			addMsg(false, "WASM tests skipped (setup failed)")
 		} else {
-			// Build WASM test command with custom args, filtering out -race (not supported in WASM)
-			var wasmArgs []string
-			for _, arg := range customArgs {
-				if arg != "-race" {
-					wasmArgs = append(wasmArgs, arg)
-				}
-			}
-			// Inject timeout for WASM tests too
-			if !HasTimeoutFlag(wasmArgs) {
-				wasmArgs = append(wasmArgs, timeoutFlag)
-			}
 
 			// Always add -count=1 for WASM to enforce consistent behavior (no caching)
 			// unless user already specified it.
@@ -708,6 +748,20 @@ func (g *Go) runCustomTests(customArgs []string, moduleName string, timeoutSec i
 			if !anyWasmFailed {
 				addMsg(true, "wasm")
 			}
+		}
+	}
+
+	if hasTaggedFiles(g.rootDir, browserTag) {
+		failed := false
+		for _, dir := range append([]string{g.rootDir}, findSubModuleDirs(g.rootDir)...) {
+			if out, f := g.runBrowserTests(dir, runAll, timeoutSec, wasmArgs); f {
+				failed = true
+				g.consoleOutput(out)
+			}
+		}
+		addMsg(!failed, browserPassLabel)
+		if failed {
+			testStatus = "Failed"
 		}
 	}
 
@@ -990,7 +1044,7 @@ type wasmRun struct {
 func (g *Go) runWasmIn(dir, coverPkg string, runAll bool, timeoutSec int) wasmRun {
 	execArg := g.wasmExecArg()
 	testArgs := []string{"test", "-exec", execArg, "-v", "-cover", "-coverpkg=" + coverPkg, "-count=1"}
-	testArgs = append(testArgs, g.wasmTestPackages(dir, runAll)...)
+	testArgs = append(testArgs, g.wasmTestPackages(dir, runAll, "")...)
 
 	wasmCtx, wasmCancel := context.WithTimeout(context.Background(), g.wasmTimeout(timeoutSec))
 	defer wasmCancel()
@@ -1083,10 +1137,10 @@ func (g *Go) wasmEnabledIn(dir string, runAll bool) bool {
 //
 // Falls back to "./..." if go list gives nothing, so the caller still sees a real error
 // instead of an empty, silently-passing run.
-func (g *Go) wasmTestPackages(dir string, runAll bool) []string {
+func (g *Go) wasmTestPackages(dir string, runAll bool, extraTag string) []string {
 	args := []string{"list", "-f", `{{.ImportPath}} {{len .GoFiles}} {{len .TestGoFiles}} {{len .XTestGoFiles}} {{join .IgnoredGoFiles ","}}`}
-	if runAll {
-		args = append(args, "-tags=integration")
+	if tags := buildTagsArg(runAll, extraTag); tags != "" {
+		args = append(args, tags)
 	}
 	args = append(args, "./...")
 
