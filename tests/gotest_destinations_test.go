@@ -63,48 +63,51 @@ func TestBrowserAndWorkerPasses(t *testing.T) {
 	})
 
 	// D4
-	t.Run("D4: web/edge.go with wasm && !browser", func(t *testing.T) {
+	t.Run("D4: web/edge/main.go (no tag)", func(t *testing.T) {
 		dir, cleanup := testCreateGoModule("testd4")
 		defer cleanup()
 
-		os.MkdirAll(filepath.Join(dir, "web"), 0755)
-		os.WriteFile(filepath.Join(dir, "web", "edge.go"), []byte("//go:build wasm && !browser\n\npackage main\n"), 0644)
+		os.MkdirAll(filepath.Join(dir, "web", "edge"), 0755)
+		os.WriteFile(filepath.Join(dir, "web", "edge", "main.go"), []byte("package main\n"), 0644)
 
 		check := captureGoTest(t, dir, devflow.TestOptions{NoCache: true})
-		if !check(hasArgs("vet", "./web")) {
-			t.Error("D4: missing expected args for vet ./web")
+		if !check(hasArgs("vet", "./web/edge")) {
+			t.Error("D4: missing expected args for vet ./web/edge")
 		}
 		if check(func(a []string) bool {
-			return hasArgs("vet", "./web")(a) && hasArgs("-tags=")(a)
+			return hasArgs("vet", "./web/edge")(a) && hasArgs("-tags=")(a)
 		}) {
 			t.Error("D4: found unexpected -tags= in vet run")
 		}
 	})
 
 	// D5
-	t.Run("D5: web/browser.go with browser tag", func(t *testing.T) {
+	t.Run("D5: web/browser/main.go (no tag)", func(t *testing.T) {
 		dir, cleanup := testCreateGoModule("testd5")
 		defer cleanup()
 
-		os.MkdirAll(filepath.Join(dir, "web"), 0755)
-		os.WriteFile(filepath.Join(dir, "web", "browser.go"), []byte("//go:build browser\n\npackage main\n"), 0644)
+		os.MkdirAll(filepath.Join(dir, "web", "browser"), 0755)
+		os.WriteFile(filepath.Join(dir, "web", "browser", "main.go"), []byte("package main\n"), 0644)
 
 		check := captureGoTest(t, dir, devflow.TestOptions{NoCache: true})
-		if !check(hasArgs("vet", "-tags=browser", "./web")) {
-			t.Error("D5: missing expected args for vet -tags=browser ./web")
+		if !check(hasArgs("vet", "-tags=browser", "./web/browser")) {
+			t.Error("D5: missing expected args for vet -tags=browser ./web/browser")
+		}
+		if !check(hasArgs("test", "-tags=browser")) {
+			t.Error("D5: missing expected args for test -tags=browser")
 		}
 	})
 
 	// D6
-	t.Run("D6: no web/edge.go", func(t *testing.T) {
+	t.Run("D6: no web/edge/main.go", func(t *testing.T) {
 		dir, cleanup := testCreateGoModule("testd6")
 		defer cleanup()
 
 		check := captureGoTest(t, dir, devflow.TestOptions{NoCache: true})
 		if check(func(a []string) bool {
-			return len(a) > 0 && a[0] == "vet" && hasArgs("./web")(a)
+			return len(a) > 0 && a[0] == "vet" && hasArgs("./web/edge")(a)
 		}) {
-			t.Error("D6: found unexpected vet ./web")
+			t.Error("D6: found unexpected vet ./web/edge")
 		}
 	})
 
@@ -131,6 +134,28 @@ func TestBrowserAndWorkerPasses(t *testing.T) {
 		check := captureGoTest(t, dir, devflow.TestOptions{Args: []string{"-run", "TestX"}})
 		if !check(hasArgs("-tags=browser", "-run", "TestX")) {
 			t.Error("D8: missing expected args for -tags=browser -run TestX")
+		}
+	})
+
+	// D9
+	t.Run("D9: legacy web/edge.go and web/browser.go only", func(t *testing.T) {
+		dir, cleanup := testCreateGoModule("testd9")
+		defer cleanup()
+
+		os.MkdirAll(filepath.Join(dir, "web"), 0755)
+		os.WriteFile(filepath.Join(dir, "web", "edge.go"), []byte("//go:build wasm && !browser\n\npackage main\n"), 0644)
+		os.WriteFile(filepath.Join(dir, "web", "browser.go"), []byte("//go:build browser\n\npackage main\n"), 0644)
+
+		check := captureGoTest(t, dir, devflow.TestOptions{NoCache: true})
+		if check(func(a []string) bool {
+			return len(a) > 0 && a[0] == "vet" && hasArgs("./web/edge")(a)
+		}) {
+			t.Error("D9: found unexpected vet ./web/edge")
+		}
+		if check(func(a []string) bool {
+			return len(a) > 0 && a[0] == "vet" && hasArgs("./web/browser")(a)
+		}) {
+			t.Error("D9: found unexpected vet ./web/browser")
 		}
 	})
 }

@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	webDir          = "web"
-	edgeMainFile    = "edge.go"    // web/edge.go: the Worker main
-	browserMainFile = "browser.go" // web/browser.go: the browser main
+	edgeMainDir      = "web/edge"    // web/edge/main.go: the Worker main
+	browserMainDir   = "web/browser" // web/browser/main.go: the browser main
+	mainFile         = "main.go"
 	browserPassLabel = "browser"
 	workerPassLabel  = "worker"
 )
@@ -62,12 +62,12 @@ func (g *Go) runBrowserTests(dir string, runAll bool, timeoutSec int, extraArgs 
 	return out.String(), failed
 }
 
-func (g *Go) vetWebMain(tag string) (output string, failed bool) {
+func (g *Go) vetWebMain(pkgDir, tag string) (output string, failed bool) {
 	var args []string
 	if tag == "" {
-		args = []string{"vet", "./web"}
+		args = []string{"vet", "./" + pkgDir}
 	} else {
-		args = []string{"vet", "-tags=" + tag, "./web"}
+		args = []string{"vet", "-tags=" + tag, "./" + pkgDir}
 	}
 
 	cmd := GoTestCmdFn(context.Background(), g.rootDir, "go", args...)

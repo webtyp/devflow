@@ -377,10 +377,10 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 		}
 	}
 
-	// Worker pass: web/edge.go is the Cloudflare Worker main (wasm && !browser).
+	// Worker pass: web/edge/main.go is the Cloudflare Worker main.
 	// No test runs it, so vet it for js/wasm: that compiles the Worker and all it imports.
-	if checkFileExists(filepath.Join(g.rootDir, webDir, edgeMainFile)) {
-		out, failed := g.vetWebMain("")
+	if checkFileExists(filepath.Join(g.rootDir, filepath.FromSlash(edgeMainDir), mainFile)) {
+		out, failed := g.vetWebMain(edgeMainDir, "")
 		addMsg(!failed, workerPassLabel)
 		if failed {
 			testStatus = "Failed"
@@ -388,16 +388,17 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 		}
 	}
 
-	// Browser pass: files tagged `browser` only exist in browser.wasm. Their tests
-	// run in headless Chrome with -tags browser; the browser main is vetted too.
-	if hasTaggedFiles(g.rootDir, browserTag) {
+	// Browser pass: the browser main exists, or some file is tagged `browser`.
+	// Their tests run in headless Chrome with -tags browser; the browser main is vetted too.
+	browserMainExists := checkFileExists(filepath.Join(g.rootDir, filepath.FromSlash(browserMainDir), mainFile))
+	if hasTaggedFiles(g.rootDir, browserTag) || browserMainExists {
 		failed := false
 		if err := g.installWasmBrowserTest(); err != nil {
 			failed = true
 			g.consoleOutput("browser tests: wasmbrowsertest setup failed: " + err.Error())
 		}
-		if !failed && checkFileExists(filepath.Join(g.rootDir, webDir, browserMainFile)) {
-			if out, f := g.vetWebMain(browserTag); f {
+		if !failed && browserMainExists {
+			if out, f := g.vetWebMain(browserMainDir, browserTag); f {
 				failed = true
 				g.consoleOutput(out)
 			}

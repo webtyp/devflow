@@ -65,8 +65,8 @@ Submodules (a subdirectory with its own `go.mod`, e.g. `tests/`) get the same tr
 |---|---|---|---|
 | **dev tests** | Any `.go` file has `//go:build dev` | `go test -tags dev ./...` | `dev tests ✅/❌` |
 | **wasm** | Any test only builds with `wasm` | `GOOS=js GOARCH=wasm go test -exec wasmbrowsertest ./...` | `wasm ✅/❌` |
-| **worker** | `web/edge.go` exists | `GOOS=js GOARCH=wasm go vet ./web` | `worker ✅/❌` |
-| **browser** | Any `.go` file has `//go:build browser` | `GOOS=js GOARCH=wasm go vet -tags browser ./web` and `go test -exec wasmbrowsertest -tags browser ./...` | `browser ✅/❌` |
+| **worker** | `web/edge/main.go` exists | `GOOS=js GOARCH=wasm go vet ./web/edge` | `worker ✅/❌` |
+| **browser** | `web/browser/main.go` exists **or** any `.go` file has `//go:build browser` | `GOOS=js GOARCH=wasm go vet -tags browser ./web/browser` and `go test -exec wasmbrowsertest -tags browser ./...` | `browser ✅/❌` |
 
 6. Detects slowest test (if > 2.0s)
 7. Detects WASM released function calls
