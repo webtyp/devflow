@@ -2,8 +2,10 @@
 PLAN: "feat!: gotest finds the Worker and browser mains in web/edge/ and web/browser/"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 17440383609713547902
+PR: https://github.com/webtyp/devflow/pull/50
+REVIEWED_COMMIT: a910e9011e84d6ac5cf5f0d1ba4b0c4cf58018fb
 ---
 
 > Read AGENTS.md at the repo root before any change.
