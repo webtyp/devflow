@@ -2,6 +2,8 @@
 PLAN: "feat!: gotest finds the Worker and browser mains in web/edge/ and web/browser/"
 EXECUTOR: jules
 REVIEWER: none
+STATUS: running
+SESSION: 17440383609713547902
 ---
 
 > Read AGENTS.md at the repo root before any change.
