@@ -9,7 +9,7 @@ require (
 	webtyp.com/gorelease v0.1.2
 	webtyp.com/gorun v0.0.27
 	webtyp.com/keyring v0.2.9
-	webtyp.com/lang v0.1.9
+	webtyp.com/lang v0.1.10
 	webtyp.com/markdown v0.0.3
 	webtyp.com/mcp v0.3.4
 	webtyp.com/model v0.2.6
