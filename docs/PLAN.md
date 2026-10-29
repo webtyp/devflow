@@ -2,8 +2,10 @@
 PLAN: "fix(cascade): a dependent's test submodule (tests/go.mod) is tidied, reverted and committed together with its root go.mod"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 754724929630439105
+PR: https://github.com/webtyp/devflow/pull/51
+REVIEWED_COMMIT: a82b47276db4aaf95411d5bb46e925fa0d7002fd
 ---
 
 > Read AGENTS.md at the repo root before any change.
