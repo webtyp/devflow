@@ -2,11 +2,11 @@ package devflow
 
 import (
 	"fmt"
-	gitmod "webtyp.com/git"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	gitmod "webtyp.com/git"
 
 	"webtyp.com/modfind"
 )
@@ -107,6 +107,12 @@ func (g *Go) BuildDependentGraph(rootModule, searchPath string) ([]CascadeNode, 
 	if err := collect(rootModule, 0); err != nil {
 		return nil, err
 	}
+
+	// A dependent's test submodule (a direct child directory with its own go.mod)
+	// is tidied by its parent's UpdateDependentModule, so when the parent is in
+	// the wave the submodule is not a node of its own: processing it twice makes
+	// two identical commits and a failed push.
+	transitive = foldChildSubmodules(transitive, moduleToDir)
 
 	// 4. Topological sort of the transitive set
 	// We only care about dependencies WITHIN the transitive set + rootModule
@@ -336,4 +342,21 @@ func (g *Go) getModuleDependencies(dir string) ([]string, error) {
 		}
 	}
 	return deps, nil
+}
+
+// foldChildSubmodules drops every module whose directory's parent is the
+// directory of another module in mods.
+func foldChildSubmodules(mods []string, moduleToDir map[string]string) []string {
+	dirs := make(map[string]bool, len(mods))
+	for _, m := range mods {
+		dirs[filepath.Clean(moduleToDir[m])] = true
+	}
+	kept := mods[:0:0]
+	for _, m := range mods {
+		if dirs[filepath.Dir(filepath.Clean(moduleToDir[m]))] {
+			continue
+		}
+		kept = append(kept, m)
+	}
+	return kept
 }

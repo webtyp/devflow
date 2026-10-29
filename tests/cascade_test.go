@@ -405,3 +405,35 @@ func TestRunCascade_SkippedNodeDoesNotPropagate(t *testing.T) {
 		t.Errorf("c detail expected %q, got %q", "no upstream bumps", details["github.com/test/c"])
 	}
 }
+
+// A dependent's test submodule (b/tests) is tidied by its parent's update, so
+// when the parent is in the wave the submodule is not a node of its own:
+// processing it twice made two identical commits and a failed push (dbsync,
+// 2026-10-29). When only the submodule depends on the root, it stays a node.
+func TestBuildDependentGraph_TestSubmoduleFoldsIntoItsParent(t *testing.T) {
+	tmp := t.TempDir()
+	mainDir := testWriteModule(t, tmp, "main")
+	testWriteModule(t, tmp, "b", "main")
+	testWriteModule(t, tmp, "b/tests", "b", "main")
+	testWriteModule(t, tmp, "c")
+	testWriteModule(t, tmp, "c/tests", "c", "main") // only the submodule depends on main
+
+	g := newCascadeHandler(t, mainDir)
+	nodes, err := g.BuildDependentGraph("github.com/test/main", tmp)
+	if err != nil {
+		t.Fatalf("BuildDependentGraph: %v", err)
+	}
+	got := map[string]bool{}
+	for _, n := range nodes {
+		got[n.ModulePath] = true
+	}
+	if !got["github.com/test/b"] {
+		t.Error("parent b must be a node")
+	}
+	if got["github.com/test/b/tests"] {
+		t.Error("b/tests must fold into b: its parent tidies it")
+	}
+	if !got["github.com/test/c/tests"] {
+		t.Error("c/tests must stay a node: its parent c is not in the wave")
+	}
+}
