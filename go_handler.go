@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"webtyp.com/command"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+	"webtyp.com/command"
 
 	gitmod "webtyp.com/git"
 	"webtyp.com/gorun"

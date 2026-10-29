@@ -11,8 +11,6 @@ package devflow_test
 // pass WITHOUT modifying the expectations.
 
 import (
-	"webtyp.com/command"
-	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +18,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 
 	"webtyp.com/devflow"
 )
