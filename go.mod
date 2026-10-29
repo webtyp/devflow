@@ -29,7 +29,7 @@ require (
 	webtyp.com/router v0.4.9 // indirect
 	webtyp.com/time v0.6.2 // indirect
 	webtyp.com/unixid v0.3.1 // indirect
-	webtyp.com/webauthn v0.1.6 // indirect
+	webtyp.com/webauthn v0.1.16 // indirect
 )
 
 require (
