@@ -2,6 +2,8 @@
 PLAN: "feat(gotest): fail when a source file needs a build tag no gotest pass sets"
 EXECUTOR: jules
 REVIEWER: none
+STATUS: running
+SESSION: 16940990928475209428
 ---
 
 > Read AGENTS.md at the repo root before any change.
