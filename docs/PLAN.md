@@ -2,6 +2,8 @@
 PLAN: "fix(cascade): a dependent's test submodule (tests/go.mod) is tidied, reverted and committed together with its root go.mod"
 EXECUTOR: jules
 REVIEWER: none
+STATUS: running
+SESSION: 754724929630439105
 ---
 
 > Read AGENTS.md at the repo root before any change.
