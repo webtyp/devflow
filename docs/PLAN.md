@@ -79,3 +79,7 @@ go install ./cmd/gotest && gotest
 | 1 | `tests/dependents_guard_test.go` | new test fails for the traced reason (commit red) |
 | 2 | `go_handler.go` | new test green, suite green |
 | 3 | `README.md` | sentence present |
+
+## Executor notes
+- Added test for test submodules inside a real initialized git repository using `git show` and exact matching.
+- Used `filepath.Rel(depDir, sub)` to compute relative submodule paths properly for deep submodules instead of just `filepath.Base`.
