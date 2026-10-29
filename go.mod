@@ -12,7 +12,7 @@ require (
 	webtyp.com/lang v0.1.10
 	webtyp.com/markdown v0.0.3
 	webtyp.com/mcp v0.3.4
-	webtyp.com/model v0.2.9
+	webtyp.com/model v0.2.11
 	webtyp.com/modfind v0.0.11
 )
 
