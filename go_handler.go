@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"webtyp.com/command"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+	"webtyp.com/command"
 
 	gitmod "webtyp.com/git"
 	"webtyp.com/gorun"
@@ -474,9 +474,24 @@ func (g *Go) UpdateDependentModule(depDir string, bumps []gitmod.DepBump, rootCa
 
 	// 3. Smart Revert Logic
 	success := false
+	modFiles := []string{"go.mod", "go.sum"}
+	for _, sub := range findSubModuleDirs(depDir) {
+		rel, err := filepath.Rel(depDir, sub)
+		if err != nil {
+			rel = filepath.Base(sub) // Fallback
+		}
+		if _, err := os.Stat(filepath.Join(sub, "go.mod")); err == nil {
+			modFiles = append(modFiles, filepath.Join(rel, "go.mod"))
+		}
+		if _, err := os.Stat(filepath.Join(sub, "go.sum")); err == nil {
+			modFiles = append(modFiles, filepath.Join(rel, "go.sum"))
+		}
+	}
+
 	defer func() {
 		if !success {
-			command.RunInDir(depDir, "git", "checkout", "--", "go.mod", "go.sum")
+			args := append([]string{"checkout", "--"}, modFiles...)
+			command.RunInDir(depDir, "git", args...)
 		}
 	}()
 
@@ -519,6 +534,13 @@ func (g *Go) UpdateDependentModule(depDir string, bumps []gitmod.DepBump, rootCa
 		return g.reportFail(depName, fmt.Errorf("go mod tidy failed: %s", extractFirstFailure(output)))
 	}
 
+	for _, sub := range findSubModuleDirs(depDir) {
+		if output, err := command.RunInDir(sub, "go", "mod", "tidy"); err != nil {
+			rel := filepath.Base(sub)
+			return g.reportFail(depName, fmt.Errorf("go mod tidy failed in %s: %s", rel, extractFirstFailure(output)))
+		}
+	}
+
 	_, _ = command.RunInDir(depDir, "go", "generate", "./...")
 
 	// 6. gotest (gate)
@@ -542,7 +564,7 @@ func (g *Go) UpdateDependentModule(depDir string, bumps []gitmod.DepBump, rootCa
 	commitMsg := gitmod.BuildDepsCommitMessage(bumps, rootCause)
 
 	if action == gitmod.ActionDepsOnly {
-		committed, err := git.CommitPaths(commitMsg, "go.mod", "go.sum")
+		committed, err := git.CommitPaths(commitMsg, modFiles...)
 		if err != nil {
 			return g.reportFail(depName, fmt.Errorf("deps-only commit failed: %w", err))
 		}

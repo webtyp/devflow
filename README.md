@@ -8,7 +8,7 @@ Complete Go development automation: project init, testing, versioning, updates, 
 
 - **[gonew](docs/GONEW.md)** - Initialize new Go projects
 - **[gotest](docs/GOTEST.md)** - Run tests, vet, race detection, coverage and badges
-- **[gopush](docs/GOPUSH.md)** - Automated publish workflow: test + push + update dependents
+- **[gopush](docs/GOPUSH.md)** - Automated publish workflow: test + push + update dependents; test submodules (`tests/go.mod`) are tidied and committed with the root `go.mod`.
 - **[devbackup](docs/DEVBACKUP.md)** - Configure and execute automated backups
 - **[badges](docs/BADGES.md)** - Generate SVG badges for README (test status, coverage, etc.)
 - **[goinstall](docs/GOINSTALL.md)** - Install all devflow commands at once

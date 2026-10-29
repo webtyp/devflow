@@ -11,8 +11,6 @@ package devflow_test
 // pass WITHOUT modifying the expectations.
 
 import (
-	"webtyp.com/command"
-	gitmod "webtyp.com/git"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +18,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
 
 	"webtyp.com/devflow"
 )
@@ -229,6 +229,9 @@ func TestUpdateDependentModule_DirtyTreeCommitsOnlyGoModAndSum(t *testing.T) {
 			if joined == "version" {
 				return exec.Command("echo", "go version go1.20 linux/amd64")
 			}
+			if joined == "mod tidy" {
+				return exec.Command("bash", "-c", "echo '// tidy' >> go.mod; echo '// tidy' >> go.sum")
+			}
 			return exec.Command("true") // get / tidy / generate / list
 		case "gotest":
 			return exec.Command("echo", "tests ok")
@@ -373,6 +376,9 @@ func TestUpdateDependentModule_OtherReplacesGoesDepsOnly(t *testing.T) {
 		case "go":
 			if joined == "version" {
 				return exec.Command("echo", "go version go1.20 linux/amd64")
+			}
+			if joined == "mod tidy" {
+				return exec.Command("bash", "-c", "echo '// tidy' >> go.mod; echo '// tidy' >> go.sum")
 			}
 			return exec.Command("true") // get / tidy / generate / list
 		case "gotest":
@@ -537,5 +543,125 @@ func TestUpdateDependentModule_MultiDependencyUnblocked(t *testing.T) {
 
 	if outcome.Status == devflow.CascadeStatusSkipped && outcome.Reason == gitmod.ObjectionOtherReplaces {
 		t.Fatal("should not be blocked by replaces that are part of the wave")
+	}
+}
+
+func TestUpdateDependentModule_TidiesTestSubmodule(t *testing.T) {
+	tmp := t.TempDir()
+	depDir := filepath.Join(tmp, "myapp")
+	os.MkdirAll(depDir, 0755)
+
+	// Initialize a real git repo
+	command.RunInDir(depDir, "git", "init")
+	command.RunInDir(depDir, "git", "config", "user.name", "Test User")
+	command.RunInDir(depDir, "git", "config", "user.email", "test@test.com")
+	command.RunInDir(depDir, "git", "remote", "add", "origin", "https://github.com/test/dummy.git")
+
+	// Root module
+	gomod := "module github.com/test/myapp\n\ngo 1.20\n\nrequire github.com/test/mylib v0.0.0\n"
+	os.WriteFile(filepath.Join(depDir, "go.mod"), []byte(gomod), 0644)
+	os.WriteFile(filepath.Join(depDir, "go.sum"), []byte("dummy\n"), 0644)
+
+	// Test submodule
+	testsDir := filepath.Join(depDir, "tests")
+	os.MkdirAll(testsDir, 0755)
+	testsGomod := "module github.com/test/myapp/tests\n\ngo 1.20\n\nrequire github.com/test/myapp v0.0.0\nreplace github.com/test/myapp => ..\n"
+	os.WriteFile(filepath.Join(testsDir, "go.mod"), []byte(testsGomod), 0644)
+	os.WriteFile(filepath.Join(testsDir, "go.sum"), []byte("dummy\n"), 0644)
+
+	testsCode := "package tests\n\nimport _ \"github.com/test/myapp\"\n"
+	os.WriteFile(filepath.Join(testsDir, "x_test.go"), []byte(testsCode), 0644)
+
+	// Commit initial state
+	command.RunInDir(depDir, "git", "add", ".")
+	command.RunInDir(depDir, "git", "commit", "-m", "initial")
+
+	// Dirty tree for deps-only commit variant
+	os.WriteFile(filepath.Join(depDir, "notes.txt"), []byte("WIP\n"), 0644)
+
+	var mu sync.Mutex
+	var goCalls [][]string
+	originalExec := command.Exec
+	defer func() { command.Exec = originalExec }()
+
+	realGit, err := gitmod.NewGit()
+	if err != nil {
+		t.Fatalf("failed to init real git: %v", err)
+	}
+	realGit.SetRootDir(depDir)
+
+	// Since we mock go mod tidy but use a real git, the real git push will fail because of missing remotes/credentials.
+	// But git.PushWithoutTags is a separate execution. Let's mock git push!
+	command.Exec = func(name string, args ...string) *exec.Cmd {
+		if name == "git" && len(args) > 0 && args[0] == "push" {
+			return exec.Command("true")
+		}
+		if name == "go" {
+			joined := strings.Join(args, " ")
+			mu.Lock()
+			goCalls = append(goCalls, args)
+			mu.Unlock()
+			if joined == "version" {
+				return exec.Command("echo", "go version go1.20 linux/amd64")
+			}
+			if joined == "mod tidy" {
+				return exec.Command("bash", "-c", "echo '// tidy' >> go.mod; echo '// tidy' >> go.sum")
+			}
+			return exec.Command("true")
+		}
+		if name == "gotest" {
+			return exec.Command("echo", "tests ok")
+		}
+		return originalExec(name, args...)
+	}
+
+	g := newGoHandlerWithMockBackup(t, realGit)
+	g.SetConsoleOutput(func(string) {})
+	g.SetRetryConfig(time.Millisecond, 1)
+
+	outcome, err := g.UpdateDependentModule(depDir, []gitmod.DepBump{{ModulePath: "github.com/test/mylib", NewVersion: "v0.0.1"}}, "feat: test")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if outcome.Status != devflow.CascadeStatusDepsOnly {
+		t.Fatalf("expected deps-only, got %+v", outcome)
+	}
+
+	// 1. Check commit files
+	out, err := command.RunInDir(depDir, "git", "show", "--name-only", "--format=")
+	if err != nil {
+		t.Fatalf("git show failed: %v", err)
+	}
+
+	files := strings.Fields(out)
+
+	expectedFiles := map[string]bool{
+		"go.mod":       true,
+		"go.sum":       true,
+		"tests/go.mod": true,
+		"tests/go.sum": true,
+	}
+
+	if len(files) != len(expectedFiles) {
+		t.Errorf("commit expected %d files but got %d files: %v", len(expectedFiles), len(files), files)
+	}
+
+	for _, f := range files {
+		if !expectedFiles[f] {
+			t.Errorf("commit included unexpected file: %s (got %v)", f, files)
+		}
+	}
+
+	for expected := range expectedFiles {
+		found := false
+		for _, f := range files {
+			if f == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("commit must include %s, got files: %v", expected, files)
+		}
 	}
 }
