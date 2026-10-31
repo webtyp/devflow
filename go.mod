@@ -6,9 +6,9 @@ require (
 	golang.org/x/term v0.45.0
 	webtyp.com/command v0.0.4
 	webtyp.com/git v0.0.8
-	webtyp.com/gorelease v0.1.9
+	webtyp.com/gorelease v0.1.10
 	webtyp.com/gorun v0.0.27
-	webtyp.com/keyring v0.2.9
+	webtyp.com/keyring v0.2.10
 	webtyp.com/lang v0.1.10
 	webtyp.com/markdown v0.0.3
 	webtyp.com/mcp v0.3.4
@@ -27,8 +27,10 @@ require (
 	webtyp.com/base64 v0.0.6 // indirect
 	webtyp.com/calendar v0.1.0 // indirect
 	webtyp.com/color v0.1.2 // indirect
+	webtyp.com/crypto v0.0.30 // indirect
 	webtyp.com/css v0.4.30 // indirect
 	webtyp.com/dbus v0.1.1 // indirect
+	webtyp.com/deploy v0.2.114 // indirect
 	webtyp.com/device v0.1.0 // indirect
 	webtyp.com/dom v0.13.29 // indirect
 	webtyp.com/escape v0.1.0 // indirect
@@ -43,11 +45,13 @@ require (
 	webtyp.com/json v0.5.37 // indirect
 	webtyp.com/pwa v0.2.13 // indirect
 	webtyp.com/router v0.4.17 // indirect
+	webtyp.com/selfupdate v0.0.8 // indirect
 	webtyp.com/sitec v0.2.85 // indirect
 	webtyp.com/svg v0.3.30 // indirect
 	webtyp.com/time v0.6.2 // indirect
 	webtyp.com/tinygo v1.0.1 // indirect
 	webtyp.com/unixid v0.3.1 // indirect
+	webtyp.com/update v0.0.6 // indirect
 	webtyp.com/webauthn v0.1.16 // indirect
 )
 
