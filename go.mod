@@ -30,7 +30,7 @@ require (
 	webtyp.com/crypto v0.0.30 // indirect
 	webtyp.com/css v0.4.30 // indirect
 	webtyp.com/dbus v0.1.1 // indirect
-	webtyp.com/deploy v0.2.114 // indirect
+	webtyp.com/deploy v0.2.115 // indirect
 	webtyp.com/device v0.1.0 // indirect
 	webtyp.com/dom v0.13.29 // indirect
 	webtyp.com/escape v0.1.0 // indirect
