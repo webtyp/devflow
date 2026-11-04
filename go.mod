@@ -48,7 +48,7 @@ require (
 	webtyp.com/selfupdate v0.0.11 // indirect
 	webtyp.com/sitec v0.2.87 // indirect
 	webtyp.com/svg v0.3.30 // indirect
-	webtyp.com/time v0.6.2 // indirect
+	webtyp.com/time v0.6.4 // indirect
 	webtyp.com/tinygo v1.0.1 // indirect
 	webtyp.com/unixid v0.3.1 // indirect
 	webtyp.com/update v0.0.6 // indirect
