@@ -12,7 +12,6 @@ import (
 	"webtyp.com/command"
 
 	gitmod "webtyp.com/git"
-	"webtyp.com/gorun"
 	"webtyp.com/modfind"
 )
 
@@ -701,7 +700,6 @@ func (g *Go) Install(version string) error {
 	}
 
 	for _, cmd := range commands {
-		_ = gorun.StopApp(cmd) // Kill any running instance before install
 		args := []string{"install"}
 		if ldflags != "" {
 			args = append(args, ldflags)
@@ -716,6 +714,11 @@ func (g *Go) Install(version string) error {
 			installDir = cmdDir
 			pkg = "."
 		}
+
+		if err := moveRunningBinaryAside(installDir, pkg); err != nil {
+			return fmt.Errorf("failed to install %s: %w", cmd, err)
+		}
+
 		args = append(args, pkg)
 
 		if _, err := command.RunInDir(installDir, "go", args...); err != nil {

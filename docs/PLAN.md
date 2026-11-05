@@ -116,6 +116,10 @@ A PR that does not compile, or whose tests could not run, is a failed delivery. 
 `GOPRIVATE=webtyp.com/*,github.com/veltylabs/*`, `GOFLAGS=-mod=mod`. Commit after every stage; never run
 `git reset`, `git restore`, `git checkout -- <file>` or `git stash` on your own work.
 
+## Executor notes
+
+No doc says running instances are stopped, so there is nothing to replace.
+
 ## Stages
 
 | # | Files | Done when |
