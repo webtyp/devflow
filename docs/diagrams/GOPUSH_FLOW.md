@@ -16,6 +16,7 @@ cascade coordinator** (topological order, one commit+tag per module per wave).
 | Git primitives: `StatusPorcelain`, `CommitPaths`, `DiffShortStat` (diff vs HEAD, staged or not), `WorkTreeDirtyBeyond` | [`tests/dependents_guard_test.go`](../../tests/dependents_guard_test.go) |
 | Graph: transitive closure, topological order, single node per module, cycle = error, `MaxCascadeDepth = 10` | [`TestBuildDependentGraph_*`](../../tests/cascade_test.go) |
 | Wave semantics: one call per node with ALL published bumps, failure cuts only its branch, partial updates allowed, deps-only does not propagate, skipped when zero bumps | [`TestRunCascade_*`](../../tests/cascade_test.go) |
+| Cascade failures recorded: failed nodes recorded to ledger, shown until upgraded, cleared on success/up-to-date | [`TestCascadeFailures_*`](../../tests/cascade_failures_test.go) |
 | Publish-objector chain: existing managers (`GoModHandler`/`Git`/`CodeJob`) implement `ObjectsToPublish`; strongest action wins (`Skip > DepsOnly > None`); `PLAN.md` pending → deps-only | [`tests/publish_objector_test.go`](../../tests/publish_objector_test.go) |
 | Deps commit format: `deps:` title, `cause:` line propagating the root message, bump list | [`TestBuildDepsCommitMessage`](../../tests/commit_message_test.go) |
 | Root push: user title intact + `--shortstat` body | [`TestGoPush_AppendsShortStatBody`](../../tests/go_handler_test.go) |

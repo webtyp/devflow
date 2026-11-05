@@ -39,6 +39,12 @@ gopush 'commit message' [tag]
    - Runs `go get module@tag` and `go mod tidy`
    - **Revert on failure**: If tests fail after update, `go.mod`/`go.sum` are reverted.
    When a dependent's gate fails, the line names every failing stage of its `gotest` summary and points to the full output: `📦 auth/tests → wasm ❌ (log: /tmp/gopush-gate-auth-tests.log)`. Its `go.mod`/`go.sum` are restored; reproduce with `gotest` in that directory after `go get <module>@<version>`.
+   Each failure is recorded in the ledger (`$XDG_CACHE_HOME/devflow/cascade_failures.json`, fallback `~/.cache/devflow/cascade_failures.json`). At the end of every `gopush` run, open failures are shown:
+   ```
+   Behind after failed cascades:
+     <module> needs <dependency>@<version>
+   ```
+   An entry is automatically cleared when the module later updates and publishes, or reaches `>= Version`.
    - If no other replaces exist: auto-publish dependent.
    - Dependent results print in real-time to the console.
 9. Executes backup (asynchronous)

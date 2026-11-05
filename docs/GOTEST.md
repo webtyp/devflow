@@ -72,6 +72,16 @@ gotest -bench .     # Run benchmarks
 ### Note on Verbose Output
 `gotest` now runs internal tests with `-v` by default, but uses `ConsoleFilter` to keep the output clean. It only shows failed tests and critical summaries, making verbose diagnostic data available without the noise.
 
+### Behind warnings
+
+Before the summary line, `gotest` inspects the cascade failures ledger (`$XDG_CACHE_HOME/devflow/cascade_failures.json`) for entries matching the current directory. If a past cascade failed for this module, it prints:
+
+```
+⚠️ behind: <dependency> <currentVersion> → <targetVersion> failed the cascade on <date>: <reason>
+```
+
+This is informational and does not fail the test gate. When `go.mod` is updated to require `>= targetVersion`, the entry is automatically pruned from the ledger.
+
 ## What it does
 
 ### Without arguments (full suite):

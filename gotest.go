@@ -57,6 +57,7 @@ func (g *Go) Test(opts TestOptions) (string, error) {
 	if !hasCustomArgs && !noCache {
 		cache := gitmod.NewTestCache(g.rootDir)
 		if cache.IsCacheValid() {
+			g.printBehindCascadeFailuresForDir(g.rootDir)
 			return cache.GetCachedMessage(), nil
 		}
 	}
@@ -448,6 +449,8 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 		}
 	}
 
+	g.printBehindCascadeFailuresForDir(g.rootDir)
+
 	// Return error if tests or vet failed
 	summary := fmt.Sprintf("%s%s (%.1fs)", strings.Join(msgs, ", "), g.currentTagSuffix(), time.Since(start).Seconds())
 	if testStatus == "Failed" || vetStatus == "Issues" {
@@ -783,6 +786,8 @@ func (g *Go) runCustomTests(customArgs []string, moduleName string, timeoutSec i
 	if coveragePercent != "0" {
 		msgs = append(msgs, "coverage: "+coveragePercent+"%")
 	}
+
+	g.printBehindCascadeFailuresForDir(g.rootDir)
 
 	summary := fmt.Sprintf("%s%s (%.1fs)", strings.Join(msgs, ", "), g.currentTagSuffix(), time.Since(start).Seconds())
 	if testStatus == "Failed" {

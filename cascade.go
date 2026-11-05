@@ -247,7 +247,12 @@ func (g *Go) RunCascade(rootModule, rootVersion, rootCause, searchPath string) C
 		outcome, err := processor(node, bumps, rootCause)
 		if err != nil {
 			report.Entries = append(report.Entries, CascadeEntry{ModulePath: node.ModulePath, Status: CascadeStatusFailed, Detail: err.Error()})
+			g.recordCascadeFailuresForNode(node, bumps, err)
 			continue
+		}
+
+		if outcome.Status == CascadeStatusPublished || outcome.Reason == "already up-to-date" {
+			g.clearCascadeFailuresForNode(node, bumps)
 		}
 
 		detail := outcome.Reason

@@ -27,6 +27,8 @@ type Go struct {
 	extraPublishObjectors []gitmod.PublishObjector
 	useTinygo             bool
 	sumdb                 gitmod.SumDBClient
+	cascadeLedger         string
+	isCascadeDependent    bool
 }
 
 // GoVersion reads the Go version from the go.mod file in the current directory.
@@ -393,6 +395,10 @@ func (g *Go) Push(message, tag string, skipTests, skipRace, skipDependents, skip
 		}
 	}
 
+	if !g.isCascadeDependent && !skipBackup {
+		g.printAllBehindCascadeFailures()
+	}
+
 	return gitmod.PushResult{Summary: strings.Join(summary, ", "), Tag: createdTag}, nil
 }
 
@@ -561,6 +567,9 @@ func (g *Go) UpdateDependentModule(depDir string, bumps []gitmod.DepBump, rootCa
 		return g.reportFail(depName, fmt.Errorf("go handler init failed: %w", err))
 	}
 	depHandler.SetRootDir(depDir)
+	depHandler.cascadeLedger = g.cascadeLedger
+	depHandler.consoleOutput = g.consoleOutput
+	depHandler.isCascadeDependent = true
 
 	commitMsg := gitmod.BuildDepsCommitMessage(bumps, rootCause)
 
