@@ -2,8 +2,10 @@
 PLAN: "fix: Install no longer kills running instances of the binary it installs"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 7115015945860132510
+PR: https://github.com/webtyp/devflow/pull/53
+REVIEWED_COMMIT: ae5d612315dcddf6db8f71e761b9f8f4f57ad24e
 ---
 
 > Read AGENTS.md at the repo root before any change.
@@ -115,6 +117,10 @@ grep -rn "StopApp" --include=*.go .   # → empty
 A PR that does not compile, or whose tests could not run, is a failed delivery. Environment:
 `GOPRIVATE=webtyp.com/*,github.com/veltylabs/*`, `GOFLAGS=-mod=mod`. Commit after every stage; never run
 `git reset`, `git restore`, `git checkout -- <file>` or `git stash` on your own work.
+
+## Executor notes
+
+No doc says running instances are stopped, so there is nothing to replace.
 
 ## Stages
 
