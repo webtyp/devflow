@@ -34,6 +34,29 @@ WASM tests and project root detection are handled automatically.
 | `-no-cache` | Force re-execution of tests, skipping cache | `false` |
 | `-all` | Run all tests including integration tests (sets timeout to 60s) | `false` |
 
+## Domain tests index (docs/TESTS.md)
+
+Every repo documents its domain tests in `docs/TESTS.md`: one section per area, each row «rule protected → link to the test».
+
+```markdown
+## Ingreso (LAN)
+| Regla que protege | Prueba |
+|---|---|
+| 3 intentos fallidos bloquean la IP 15 min | [TestLogin_RateLimited](../tests/login_test.go) |
+```
+
+If `docs/TESTS.md` is **absent**, the check does not fail; it prints one console line `⚠️ docs/TESTS.md missing: domain tests are not indexed`. No summary message is added.
+
+If `docs/TESTS.md` is **present**, the summary gets `tests index ✅` or `tests index ❌`. On ❌ the run fails and each problem is printed one per line.
+
+A **row** is any markdown link in `docs/TESTS.md` matching `[TestName](rel/path_test.go)`. The link target is resolved **relative to `docs/`**.
+
+A **Missing row** happens when a test has no row whose name equals the test name AND whose resolved target equals the file that declares it.
+Message: `docs/TESTS.md: missing row for <TestName> (<rel/path_test.go>)`
+
+An **Orphan row** is a row whose resolved file does not declare a test with that name (including file not found).
+Message: `docs/TESTS.md: row <TestName> → <rel/path_test.go>: test not found`
+
 ### Examples
 
 ```bash

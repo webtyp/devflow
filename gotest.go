@@ -417,6 +417,21 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 		}
 	}
 
+	// Domain tests index: docs/TESTS.md lists every Test function, and every row points to one.
+	if report, err := CheckTestsIndex(g.rootDir); err != nil {
+		addMsg(false, testsIndexLabel)
+		testStatus = "Failed"
+		g.consoleOutput(err.Error())
+	} else if !report.Present {
+		g.consoleOutput(testsIndexMissing)
+	} else {
+		addMsg(len(report.Problems) == 0, testsIndexLabel)
+		if len(report.Problems) > 0 {
+			testStatus = "Failed"
+			g.consoleOutput(strings.Join(report.Problems, "\n"))
+		}
+	}
+
 	// Report consolidated coverage
 	if coveragePercent != "0" {
 		msgs = append(msgs, "coverage: "+coveragePercent+"%")
