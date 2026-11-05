@@ -12,8 +12,8 @@ import (
 var goListTarget = []string{"list", "-f", "{{.Target}}"}
 
 const (
-	windowsGOOS  = "windows"
-	asideSuffix  = ".old"
+	windowsGOOS = "windows"
+	asideSuffix = ".old"
 )
 
 // moveRunningBinaryAside lets `go install` replace a binary that is running.
