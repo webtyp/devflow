@@ -42,7 +42,7 @@ Or install a single command — see each tool's doc linked above.
 - **Smart versioning** - Auto-increments tags, skips duplicates
 - **Multi-account** - Switch GitHub orgs easily (cdvelop, veltylabs, webtyp)
 - **Dependency updates** - Auto-updates dependent modules in workspace
-- **Full testing** - Combines vet, tests, race detection, and **exact weighted coverage** across all packages
+- **Full testing** - Combines vet, tests, race detection, **exact weighted coverage** across all packages, and **[docs/TESTS.md index check](docs/GOTEST.md)**.
 
 ## License
 

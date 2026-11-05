@@ -2,8 +2,10 @@
 PLAN: "feat(gotest): docs/TESTS.md index check — every test has a row, every row has a test"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 11756451562153705644
+PR: https://github.com/webtyp/devflow/pull/52
+REVIEWED_COMMIT: e4f31f7e58fbf04d74d3302586be1d3b5aa2a3be
 ---
 
 > Read AGENTS.md at the repo root before any change.
