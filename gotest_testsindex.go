@@ -16,10 +16,9 @@ import (
 const TestsIndexFile = "docs/TESTS.md"
 
 const (
-	testsIndexLabel   = "tests index"
-	testsIndexMissing = "⚠️ docs/TESTS.md missing: domain tests are not indexed"
-	missingRowFormat  = "docs/TESTS.md: missing row for %s (%s)"
-	orphanRowFormat   = "docs/TESTS.md: row %s → %s: test not found"
+	testsIndexLabel  = "tests index"
+	missingRowFormat = "docs/TESTS.md: missing row for %s (%s)"
+	orphanRowFormat  = "docs/TESTS.md: row %s → %s: test not found"
 )
 
 var testsIndexRow = regexp.MustCompile(`\[(Test[A-Za-z0-9_]*)\]\(([^)#\s]+_test\.go)(#[^)]*)?\)`)

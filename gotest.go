@@ -422,9 +422,7 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 		addMsg(false, testsIndexLabel)
 		testStatus = "Failed"
 		g.consoleOutput(err.Error())
-	} else if !report.Present {
-		g.consoleOutput(testsIndexMissing)
-	} else {
+	} else if report.Present { // the index is optional: without docs/TESTS.md, say nothing
 		addMsg(len(report.Problems) == 0, testsIndexLabel)
 		if len(report.Problems) > 0 {
 			testStatus = "Failed"

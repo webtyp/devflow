@@ -45,7 +45,7 @@ Every repo documents its domain tests in `docs/TESTS.md`: one section per area, 
 | 3 intentos fallidos bloquean la IP 15 min | [TestLogin_RateLimited](../tests/login_test.go) |
 ```
 
-If `docs/TESTS.md` is **absent**, the check does not fail; it prints one console line `⚠️ docs/TESTS.md missing: domain tests are not indexed`. No summary message is added.
+If `docs/TESTS.md` is **absent**, the check is skipped silently: the index is optional, and nothing is printed or added to the summary.
 
 If `docs/TESTS.md` is **present**, the summary gets `tests index ✅` or `tests index ❌`. On ❌ the run fails and each problem is printed one per line.
 
