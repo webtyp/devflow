@@ -2,8 +2,10 @@
 PLAN: "fix: Install no longer kills running instances of the binary it installs"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 7115015945860132510
+PR: https://github.com/webtyp/devflow/pull/53
+REVIEWED_COMMIT: ae5d612315dcddf6db8f71e761b9f8f4f57ad24e
 ---
 
 > Read AGENTS.md at the repo root before any change.
