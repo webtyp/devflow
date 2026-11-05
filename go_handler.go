@@ -269,8 +269,10 @@ func (g *Go) Push(message, tag string, skipTests, skipRace, skipDependents, skip
 		}
 
 		if !skipBackup && err == nil {
-			if _, backupErr := g.backup.Run(); backupErr != nil {
+			if backupMsg, backupErr := g.backup.Run(); backupErr != nil {
 				res.Summary += fmt.Sprintf(", ❌ backup failed: %v", backupErr)
+			} else if backupMsg != "" {
+				res.Summary += ", " + backupMsg
 			}
 		}
 		return res, err
