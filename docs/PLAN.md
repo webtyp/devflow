@@ -2,6 +2,8 @@
 PLAN: "fix: Install no longer kills running instances of the binary it installs"
 EXECUTOR: jules
 REVIEWER: none
+STATUS: running
+SESSION: 7115015945860132510
 ---
 
 > Read AGENTS.md at the repo root before any change.
