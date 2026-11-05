@@ -2,6 +2,8 @@
 PLAN: "feat(gotest): docs/TESTS.md index check — every test has a row, every row has a test"
 EXECUTOR: jules
 REVIEWER: none
+STATUS: running
+SESSION: 11756451562153705644
 ---
 
 > Read AGENTS.md at the repo root before any change.
