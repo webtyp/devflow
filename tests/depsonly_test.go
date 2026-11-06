@@ -1,0 +1,138 @@
+package devflow_test
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"webtyp.com/command"
+	gitmod "webtyp.com/git"
+)
+
+// depsOnlyExec mocks go get/tidy/gotest and a dirty git status; vet decides what `go vet ./...` does, and real
+// sends every other git command to the real git.
+func depsOnlyExec(t *testing.T, vet func() *exec.Cmd, real bool) *[][]string {
+	t.Helper()
+	var mu sync.Mutex
+	var gitCalls [][]string
+	orig := command.Exec
+	t.Cleanup(func() { command.Exec = orig })
+	command.Exec = func(name string, args ...string) *exec.Cmd {
+		joined := strings.Join(args, " ")
+		switch name {
+		case "git":
+			mu.Lock()
+			gitCalls = append(gitCalls, args)
+			mu.Unlock()
+			switch {
+			case strings.HasPrefix(joined, "status --porcelain"):
+				return exec.Command("echo", "?? wip.go")
+			case strings.HasPrefix(joined, "diff"):
+				return exec.Command("false")
+			case real && (args[0] == "worktree" || args[0] == "checkout"):
+				return orig(name, args...)
+			default:
+				return exec.Command("true")
+			}
+		case "go":
+			switch joined {
+			case "version":
+				return exec.Command("echo", "go version go1.20 linux/amd64")
+			case "vet ./...":
+				return vet()
+			case "mod tidy":
+				return exec.Command("bash", "-c", "echo '// tidy' >> go.mod")
+			}
+			return exec.Command("true")
+		case "gotest":
+			return exec.Command("echo", "tests ok")
+		}
+		return orig(name, args...)
+	}
+	return &gitCalls
+}
+
+func saw(calls [][]string, verb string) bool {
+	for _, c := range calls {
+		if len(c) > 0 && c[0] == verb {
+			return true
+		}
+	}
+	return false
+}
+
+func TestDepsOnly_RefusedWhenCleanTreeDoesNotCompile(t *testing.T) {
+	depDir := filepath.Join(t.TempDir(), "myapp")
+	os.MkdirAll(depDir, 0o755)
+	os.WriteFile(filepath.Join(depDir, "go.mod"), []byte("module github.com/test/myapp\n\ngo 1.20\n\nrequire github.com/test/mylib v0.0.0\n"), 0o644)
+	calls := depsOnlyExec(t, func() *exec.Cmd { return exec.Command("bash", "-c", "printf '# github.com/test/myapp\nmigrate/main.go:21:28: undefined: migrate.FlagPlan\n'; exit 1") }, false)
+
+	g := newGoHandlerWithMockBackup(t, &MockGitClient{})
+	var out []string
+	g.SetConsoleOutput(func(s string) { out = append(out, s) })
+	g.SetRetryConfig(time.Millisecond, 1)
+
+	_, err := g.UpdateDependentModule(depDir, []gitmod.DepBump{{ModulePath: "github.com/test/mylib", NewVersion: "v0.0.1"}}, "")
+	if err == nil || !strings.Contains(err.Error(), "deps only would not compile without the uncommitted changes") {
+		t.Fatalf("want the deps-only refusal, got %v", err)
+	}
+	if saw(*calls, "commit") || saw(*calls, "push") {
+		t.Fatalf("a refused deps-only must not commit or push, git calls: %v", *calls)
+	}
+	reverted := false
+	for _, c := range *calls {
+		if len(c) > 2 && c[0] == "checkout" && c[1] == "--" {
+			reverted = true
+		}
+	}
+	if !reverted {
+		t.Errorf("go.mod/go.sum must be restored, git calls: %v", *calls)
+	}
+	if len(out) == 0 || !strings.Contains(out[len(out)-1], "undefined: migrate.FlagPlan") {
+		t.Errorf("the console line must carry the compile error, got %q", out)
+	}
+}
+
+// Real git and real go vet: HEAD calls B, which exists only in an uncommitted file.
+func TestDepsOnly_CleanTreeIsTheLastCommit(t *testing.T) {
+	depDir := filepath.Join(t.TempDir(), "myapp")
+	os.MkdirAll(depDir, 0o755)
+	os.WriteFile(filepath.Join(depDir, "go.mod"), []byte("module github.com/test/myapp\n\ngo 1.20\n"), 0o644)
+	os.WriteFile(filepath.Join(depDir, "a.go"), []byte("package myapp\n\nfunc A() int { return B() }\n"), 0o644)
+	for _, args := range [][]string{{"init", "-q"}, {"add", "go.mod", "a.go"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "a"}} {
+		if out, err := exec.Command("git", append([]string{"-C", depDir}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+	}
+	os.WriteFile(filepath.Join(depDir, "b.go"), []byte("package myapp\n\nfunc B() int { return 1 }\n"), 0o644)
+
+	orig := command.Exec
+	calls := depsOnlyExec(t, func() *exec.Cmd { return nil }, true)
+	command.Exec = func(prev func(string, ...string) *exec.Cmd) func(string, ...string) *exec.Cmd {
+		return func(name string, args ...string) *exec.Cmd {
+			if name == "go" && strings.Join(args, " ") == "vet ./..." {
+				return orig(name, args...)
+			}
+			return prev(name, args...)
+		}
+	}(command.Exec)
+
+	g := newGoHandlerWithMockBackup(t, &MockGitClient{})
+	g.SetConsoleOutput(func(string) {})
+	g.SetRetryConfig(time.Millisecond, 1)
+
+	_, err := g.UpdateDependentModule(depDir, []gitmod.DepBump{{ModulePath: "github.com/test/mylib", NewVersion: "v0.0.1"}}, "")
+	if err == nil || !strings.Contains(err.Error(), "deps only would not compile") {
+		t.Fatalf("HEAD needs the uncommitted b.go: want the refusal, got %v", err)
+	}
+	if saw(*calls, "commit") {
+		t.Fatalf("must not commit, git calls: %v", *calls)
+	}
+	if out, _ := exec.Command("git", "-C", depDir, "worktree", "list").Output(); strings.Count(string(out), "\n") != 1 {
+		t.Errorf("the temporary worktree must be removed, got:\n%s", out)
+	}
+}

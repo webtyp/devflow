@@ -574,6 +574,15 @@ func (g *Go) UpdateDependentModule(depDir string, bumps []gitmod.DepBump, rootCa
 	commitMsg := gitmod.BuildDepsCommitMessage(bumps, rootCause)
 
 	if action == gitmod.ActionDepsOnly {
+		if output, err := depsOnlyCompiles(depDir, modFiles); err != nil {
+			cause := firstCompileError(output)
+			line := fmt.Sprintf("📦 %s → %s: %s ❌", depName, msgDepsOnlyNeedsWIP, cause)
+			if p := writeGateLog(depName, output); p != "" {
+				line += fmt.Sprintf(" (log: %s)", p)
+			}
+			g.consoleOutput(line)
+			return CascadeOutcome{}, fmt.Errorf("%s: %w", msgDepsOnlyNeedsWIP, err)
+		}
 		committed, err := git.CommitPaths(commitMsg, modFiles...)
 		if err != nil {
 			return g.reportFail(depName, fmt.Errorf("deps-only commit failed: %w", err))
@@ -737,4 +746,60 @@ func (g *Go) Install(version string) error {
 
 	g.consoleOutput(fmt.Sprintf("✅ Installed: %s", strings.Join(commands, ", ")))
 	return nil
+}
+
+// msgDepsOnlyNeedsWIP: the dependent's last commit with only the new go.mod/go.sum does not compile — the bump
+// needs the developer's uncommitted work, so nothing is committed and the developer publishes the whole tree.
+const msgDepsOnlyNeedsWIP = "deps only would not compile without the uncommitted changes"
+
+// depsOnlyCompiles checks out HEAD of depDir in a temporary worktree, copies only files (go.mod/go.sum of the
+// root and its test submodules) from depDir into it, and runs `go vet ./...` in the root and in every submodule:
+// the deps-only commit is exactly that tree, so it must build without the dependent's uncommitted work
+// (2026-11-05: mjosefa-cms main got migrate v0.1.0 while the code using it was still uncommitted).
+func depsOnlyCompiles(depDir string, files []string) (string, error) {
+	tmp, err := os.MkdirTemp("", "gopush-depsonly-")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(tmp)
+	wt := filepath.Join(tmp, "wt")
+	if err := os.MkdirAll(wt, 0o755); err != nil {
+		return "", err
+	}
+	if out, err := command.RunInDir(depDir, "git", "worktree", "add", "--detach", wt, "HEAD"); err != nil {
+		return out, err
+	}
+	defer command.RunInDir(depDir, "git", "worktree", "remove", "--force", wt)
+	for _, f := range files {
+		b, err := os.ReadFile(filepath.Join(depDir, f))
+		if os.IsNotExist(err) {
+			continue // a module without dependencies has no go.sum
+		}
+		if err != nil {
+			return "", err
+		}
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(wt, f)), 0o755); err != nil {
+			return "", err
+		}
+		if err := os.WriteFile(filepath.Join(wt, f), b, 0o644); err != nil {
+			return "", err
+		}
+	}
+	for _, dir := range append([]string{wt}, findSubModuleDirs(wt)...) {
+		if out, err := command.RunInDir(dir, "go", "vet", "./..."); err != nil {
+			return out, err
+		}
+	}
+	return "", nil
+}
+
+// firstCompileError is the first line of go vet output that is not a "# package" header.
+func firstCompileError(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "#") {
+			return line
+		}
+	}
+	return "failed"
 }
