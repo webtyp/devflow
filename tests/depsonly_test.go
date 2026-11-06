@@ -15,7 +15,7 @@ import (
 
 // depsOnlyExec mocks go get/tidy/gotest and a dirty git status; vet decides what `go vet ./...` does, and real
 // sends every other git command to the real git.
-func depsOnlyExec(t *testing.T, vet func() *exec.Cmd, real bool) *[][]string {
+func depsOnlyExec(t *testing.T, depDir string, vet func() *exec.Cmd, real bool) *[][]string {
 	t.Helper()
 	var mu sync.Mutex
 	var gitCalls [][]string
@@ -29,6 +29,8 @@ func depsOnlyExec(t *testing.T, vet func() *exec.Cmd, real bool) *[][]string {
 			gitCalls = append(gitCalls, args)
 			mu.Unlock()
 			switch {
+			case joined == "rev-parse --show-toplevel":
+				return exec.Command("echo", depDir)
 			case strings.HasPrefix(joined, "status --porcelain"):
 				return exec.Command("echo", "?? wip.go")
 			case strings.HasPrefix(joined, "diff"):
@@ -69,7 +71,7 @@ func TestDepsOnly_RefusedWhenCleanTreeDoesNotCompile(t *testing.T) {
 	depDir := filepath.Join(t.TempDir(), "myapp")
 	os.MkdirAll(depDir, 0o755)
 	os.WriteFile(filepath.Join(depDir, "go.mod"), []byte("module github.com/test/myapp\n\ngo 1.20\n\nrequire github.com/test/mylib v0.0.0\n"), 0o644)
-	calls := depsOnlyExec(t, func() *exec.Cmd { return exec.Command("bash", "-c", "printf '# github.com/test/myapp\nmigrate/main.go:21:28: undefined: migrate.FlagPlan\n'; exit 1") }, false)
+	calls := depsOnlyExec(t, depDir, func() *exec.Cmd { return exec.Command("bash", "-c", "printf '# github.com/test/myapp\nmigrate/main.go:21:28: undefined: migrate.FlagPlan\n'; exit 1") }, false)
 
 	g := newGoHandlerWithMockBackup(t, &MockGitClient{})
 	var out []string
@@ -111,7 +113,7 @@ func TestDepsOnly_CleanTreeIsTheLastCommit(t *testing.T) {
 	os.WriteFile(filepath.Join(depDir, "b.go"), []byte("package myapp\n\nfunc B() int { return 1 }\n"), 0o644)
 
 	orig := command.Exec
-	calls := depsOnlyExec(t, func() *exec.Cmd { return nil }, true)
+	calls := depsOnlyExec(t, depDir, func() *exec.Cmd { return nil }, true)
 	command.Exec = func(prev func(string, ...string) *exec.Cmd) func(string, ...string) *exec.Cmd {
 		return func(name string, args ...string) *exec.Cmd {
 			if name == "go" && strings.Join(args, " ") == "vet ./..." {
@@ -134,5 +136,48 @@ func TestDepsOnly_CleanTreeIsTheLastCommit(t *testing.T) {
 	}
 	if out, _ := exec.Command("git", "-C", depDir, "worktree", "list").Output(); strings.Count(string(out), "\n") != 1 {
 		t.Errorf("the temporary worktree must be removed, got:\n%s", out)
+	}
+}
+
+// TestDepsOnly_RelativeReplaceResolvesBesideTheRepo: a dependent whose go.mod has `replace … => ../lib` compiles in
+// the temporary tree too — it sits next to the repository, so ../lib is the same sibling (2026-11-06: app and
+// dbsync/tests were refused because the tree lived in /tmp).
+func TestDepsOnly_RelativeReplaceResolvesBesideTheRepo(t *testing.T) {
+	root := t.TempDir()
+	lib := filepath.Join(root, "lib")
+	os.MkdirAll(lib, 0o755)
+	os.WriteFile(filepath.Join(lib, "go.mod"), []byte("module github.com/test/lib\n\ngo 1.20\n"), 0o644)
+	os.WriteFile(filepath.Join(lib, "lib.go"), []byte("package lib\n\nfunc B() int { return 1 }\n"), 0o644)
+
+	depDir := filepath.Join(root, "myapp")
+	os.MkdirAll(depDir, 0o755)
+	os.WriteFile(filepath.Join(depDir, "go.mod"), []byte("module github.com/test/myapp\n\ngo 1.20\n\nrequire github.com/test/lib v0.0.0\n\nreplace github.com/test/lib => ../lib\n"), 0o644)
+	os.WriteFile(filepath.Join(depDir, "a.go"), []byte("package myapp\n\nimport \"github.com/test/lib\"\n\nfunc A() int { return lib.B() }\n"), 0o644)
+	for _, args := range [][]string{{"init", "-q"}, {"add", "go.mod", "a.go"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "a"}} {
+		if out, err := exec.Command("git", append([]string{"-C", depDir}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+	}
+
+	orig := command.Exec
+	depsOnlyExec(t, depDir, func() *exec.Cmd { return nil }, true)
+	command.Exec = func(prev func(string, ...string) *exec.Cmd) func(string, ...string) *exec.Cmd {
+		return func(name string, args ...string) *exec.Cmd {
+			joined := strings.Join(args, " ")
+			if (name == "go" && joined == "vet ./...") || (name == "git" && joined == "rev-parse --show-toplevel") {
+				return orig(name, args...)
+			}
+			return prev(name, args...)
+		}
+	}(command.Exec)
+
+	g := newGoHandlerWithMockBackup(t, &MockGitClient{})
+	g.SetConsoleOutput(func(string) {})
+	g.SetRetryConfig(time.Millisecond, 1)
+	if _, err := g.UpdateDependentModule(depDir, []gitmod.DepBump{{ModulePath: "github.com/test/other", NewVersion: "v0.0.1"}}, ""); err != nil {
+		t.Fatalf("HEAD compiles with ../lib beside it: want deps-only to proceed, got %v", err)
+	}
+	if entries, _ := os.ReadDir(root); len(entries) != 2 {
+		t.Errorf("the temporary tree must be removed from beside the repo, got %d entries", len(entries))
 	}
 }

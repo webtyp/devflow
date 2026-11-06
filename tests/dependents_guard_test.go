@@ -215,6 +215,8 @@ func TestUpdateDependentModule_DirtyTreeCommitsOnlyGoModAndSum(t *testing.T) {
 			gitCalls = append(gitCalls, args)
 			mu.Unlock()
 			switch {
+			case joined == "rev-parse --show-toplevel":
+				return exec.Command("echo", depDir)
 			case strings.HasPrefix(joined, "status --porcelain"):
 				// Simulates the developer's WIP in the dependent
 				return exec.Command("echo", "?? wip.go")
@@ -363,6 +365,8 @@ func TestUpdateDependentModule_OtherReplacesGoesDepsOnly(t *testing.T) {
 			gitCalls = append(gitCalls, args)
 			mu.Unlock()
 			switch {
+			case joined == "rev-parse --show-toplevel":
+				return exec.Command("echo", depDir)
 			case strings.HasPrefix(joined, "status --porcelain"):
 				// Clean tree: the only objection in play must be the
 				// unrelated replace, not a dirty working tree.

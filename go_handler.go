@@ -757,19 +757,26 @@ const msgDepsOnlyNeedsWIP = "deps only would not compile without the uncommitted
 // the deps-only commit is exactly that tree, so it must build without the dependent's uncommitted work
 // (2026-11-05: mjosefa-cms main got migrate v0.1.0 while the code using it was still uncommitted).
 func depsOnlyCompiles(depDir string, files []string) (string, error) {
-	tmp, err := os.MkdirTemp("", "gopush-depsonly-")
+	top, err := command.RunInDir(depDir, "git", "rev-parse", "--show-toplevel")
+	if err != nil {
+		return top, err
+	}
+	rel, err := filepath.Rel(top, depDir)
 	if err != nil {
 		return "", err
 	}
-	defer os.RemoveAll(tmp)
-	wt := filepath.Join(tmp, "wt")
-	if err := os.MkdirAll(wt, 0o755); err != nil {
+	// The worktree sits next to the repository, in the same parent directory: a relative replace (../devtui, or
+	// ../ from a test submodule) then points where it points from the real checkout.
+	wt, err := os.MkdirTemp(filepath.Dir(top), ".gopush-depsonly-"+filepath.Base(top)+"-")
+	if err != nil {
 		return "", err
 	}
+	defer os.RemoveAll(wt)
 	if out, err := command.RunInDir(depDir, "git", "worktree", "add", "--detach", wt, "HEAD"); err != nil {
 		return out, err
 	}
 	defer command.RunInDir(depDir, "git", "worktree", "remove", "--force", wt)
+	wtDep := filepath.Join(wt, rel)
 	for _, f := range files {
 		b, err := os.ReadFile(filepath.Join(depDir, f))
 		if os.IsNotExist(err) {
@@ -778,14 +785,14 @@ func depsOnlyCompiles(depDir string, files []string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if err := os.MkdirAll(filepath.Dir(filepath.Join(wt, f)), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(wtDep, f)), 0o755); err != nil {
 			return "", err
 		}
-		if err := os.WriteFile(filepath.Join(wt, f), b, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(wtDep, f), b, 0o644); err != nil {
 			return "", err
 		}
 	}
-	for _, dir := range append([]string{wt}, findSubModuleDirs(wt)...) {
+	for _, dir := range append([]string{wtDep}, findSubModuleDirs(wtDep)...) {
 		if out, err := command.RunInDir(dir, "go", "vet", "./..."); err != nil {
 			return out, err
 		}
