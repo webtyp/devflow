@@ -111,6 +111,9 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 	if opts.Owner != "" {
 		// Use specified owner
 		ghUser = opts.Owner
+	} else if owner, neighbor := ownerFromNeighbors(filepath.Dir(targetDir), opts.Name); owner != "" {
+		ghUser = owner
+		gn.log("GitHub owner", owner, "(taken from the origin of neighbor repository", neighbor+")")
 	} else if gn.github != nil {
 		// Auto-detect from gh CLI
 		res, err := gn.github.Get()
@@ -322,6 +325,9 @@ func (gn *GoNew) AddRemote(projectPath, visibility, owner string) (string, error
 	var ghUser string
 	if owner != "" {
 		ghUser = owner
+	} else if fromNeighbor, neighbor := ownerFromNeighbors(filepath.Dir(targetDir), repoName); fromNeighbor != "" {
+		ghUser = fromNeighbor
+		gn.log("GitHub owner", fromNeighbor, "(taken from the origin of neighbor repository", neighbor+")")
 	} else {
 		res, err := gn.github.Get()
 		if err != nil {
@@ -409,6 +415,69 @@ func modulePathFromNeighbors(parentDir, name string) (modulePath, neighbor strin
 		return strings.TrimSuffix(mod, suffix) + "/" + name, e.Name()
 	}
 	return "", ""
+}
+
+const (
+	gitConfigFileName = "config"
+	originSection     = `[remote "origin"]`
+	gitURLWord        = "url ="
+	githubHTTPS       = "https://github.com/"
+	githubSSH         = "git@github.com:"
+	gitSuffix         = ".git"
+)
+
+// ownerFromNeighbors returns the GitHub owner a new repository called name should have when it
+// is created inside parentDir: the owner of the first sibling (in directory order) whose origin
+// is github.com/<owner>/<its own directory name>. For a directory of webtyp repositories that is
+// "webtyp", whoever is signed in to gh. It returns "" when no sibling qualifies; neighbor is the
+// sibling the owner came from.
+func ownerFromNeighbors(parentDir, name string) (owner, neighbor string) {
+	entries, err := os.ReadDir(parentDir)
+	if err != nil {
+		return "", ""
+	}
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == name {
+			continue
+		}
+		url := readOriginURL(filepath.Join(parentDir, e.Name(), gitDirName, gitConfigFileName))
+		var path string
+		switch {
+		case strings.HasPrefix(url, githubHTTPS):
+			path = strings.TrimPrefix(url, githubHTTPS)
+		case strings.HasPrefix(url, githubSSH):
+			path = strings.TrimPrefix(url, githubSSH)
+		default:
+			continue
+		}
+		path = strings.TrimSuffix(path, gitSuffix)
+		suffix := "/" + e.Name()
+		if !strings.HasSuffix(path, suffix) || strings.Contains(strings.TrimSuffix(path, suffix), "/") {
+			continue
+		}
+		return strings.TrimSuffix(path, suffix), e.Name()
+	}
+	return "", ""
+}
+
+// readOriginURL returns the url of [remote "origin"] in a git config file, or "" if there is none.
+func readOriginURL(gitConfigPath string) string {
+	content, err := os.ReadFile(gitConfigPath)
+	if err != nil {
+		return ""
+	}
+	inOrigin := false
+	for _, line := range strings.Split(string(content), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") {
+			inOrigin = line == originSection
+			continue
+		}
+		if inOrigin && strings.HasPrefix(line, gitURLWord) {
+			return strings.TrimSpace(strings.TrimPrefix(line, gitURLWord))
+		}
+	}
+	return ""
 }
 
 // readModulePath returns the module path declared in a go.mod file, or "" if there is none.

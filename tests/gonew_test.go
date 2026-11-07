@@ -271,3 +271,47 @@ func TestGoNewModulePathFromNeighbor(t *testing.T) {
 		t.Errorf("module path should come from the neighbor repo, got:\n%s", string(goMod))
 	}
 }
+
+// Without -owner, a new repository goes to the GitHub owner of its neighbors: next to a repo
+// whose origin is github.com/acme/neighbor, "test-project" belongs to acme, not to the
+// signed-in user (2026-11-07: webtyp/crud was created under the personal account).
+func TestGoNewOwnerFromNeighborOrigin(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	git, err := gitmod.NewGit()
+	if err != nil {
+		t.Skip("git not installed")
+	}
+
+	os.Setenv("HOME", tmpDir)
+	os.WriteFile(filepath.Join(tmpDir, ".gitconfig"), []byte("[user]\n\tname = TestUser\n\temail = test@example.com\n"), 0644)
+
+	neighbor := filepath.Join(tmpDir, "neighbor")
+	os.MkdirAll(filepath.Join(neighbor, ".git"), 0755)
+	os.WriteFile(filepath.Join(neighbor, ".git", "config"), []byte("[remote \"origin\"]\n\turl = https://github.com/acme/neighbor.git\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n"), 0644)
+
+	goHandler, _ := devflow.NewGo(git)
+	gn := devflow.NewGoNew(git, nil, goHandler)
+
+	opts := devflow.NewProjectOptions{
+		Name:        "test-project",
+		Description: "A test project",
+		LocalOnly:   true,
+		Directory:   filepath.Join(tmpDir, "test-project"),
+	}
+	if _, err := gn.Create(opts); err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	goMod, err := os.ReadFile(filepath.Join(opts.Directory, "go.mod"))
+	if err != nil {
+		t.Fatalf("Failed to read go.mod: %v", err)
+	}
+	if !strings.Contains(string(goMod), "module github.com/acme/test-project") {
+		t.Errorf("owner should come from the neighbor's origin (acme), got:\n%s", string(goMod))
+	}
+}
