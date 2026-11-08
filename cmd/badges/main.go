@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+	devflow.MaybeRunStyleTool()
 	// Define flags
 	_ = flag.String("module-name", "testmodule", "Module name")
 	testStatus := flag.String("test-status", "Passing", "Test status")

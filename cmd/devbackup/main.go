@@ -14,6 +14,7 @@ const (
 )
 
 func main() {
+	devflow.MaybeRunStyleTool()
 	fs := flag.NewFlagSet("devbackup", flag.ExitOnError)
 	setCmd := fs.String(flagSet, "", "Set backup command (\"\" clears it)")
 	setTarget := fs.String(flagTarget, "", "Set backup disk folder; missing = disk not connected (\"\" clears it)")

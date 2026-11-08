@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+	devflow.MaybeRunStyleTool()
 	usage := func() {
 		fmt.Fprintf(os.Stderr, `gopush - Complete Go project workflow: test + git push + update dependents
 

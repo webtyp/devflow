@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	devflow.MaybeRunStyleTool()
 	git, err := gitmod.NewGit()
 	if err != nil {
 		fmt.Println("Error:", err)

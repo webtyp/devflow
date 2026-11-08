@@ -12,6 +12,7 @@ import (
 )
 
 func main() {
+	devflow.MaybeRunStyleTool()
 	opts := devflow.ParseCodeJobFlags(os.Args)
 
 	if opts.ParseError != "" {

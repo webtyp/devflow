@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+	devflow.MaybeRunStyleTool()
 	if len(os.Args) > 1 && os.Args[1] == "add-remote" {
 		opts, err := devflow.ParseAddRemoteArgs(os.Args[2:])
 		if err != nil {
