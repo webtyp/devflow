@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"webtyp.com/devflow"
 )
 
 // TestMain fails the whole suite when a test touched the real repository
@@ -14,6 +16,7 @@ import (
 // and `git commit -m initial` here: the identity stayed in .git/config and
 // signed 465 commits of devflow as "Test" before anyone saw it.
 func TestMain(m *testing.M) {
+	devflow.MaybeRunStyleTool()
 	before, err := snapshotRepo()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "repo guard:", err)

@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+	devflow.MaybeRunStyleTool()
 	usage := func() {
 		fmt.Println("Usage: gotest [-t seconds] [-no-cache] [go test flags]")
 		fmt.Println()

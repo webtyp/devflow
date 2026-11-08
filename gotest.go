@@ -103,8 +103,17 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 	var vetOutput string
 	var vetErr error
 	var enableWasmTests bool
+	var styleOutput string
+	var styleFailed bool
+	var styleErr error
 
-	wg1.Add(2)
+	wg1.Add(3)
+
+	// Style: staticcheck SA, S and QF checks (async, see style.go)
+	go func() {
+		defer wg1.Done()
+		styleOutput, styleFailed, styleErr = g.runStyle(runAll)
+	}()
 
 	// Go Vet (async)
 	go func() {
@@ -128,9 +137,7 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 	// Process vet results
 	if vetErr != nil {
 		// Check if it's just "no packages" error (WASM-only projects)
-		if strings.Contains(vetOutput, "matched no packages") ||
-			strings.Contains(vetOutput, "no packages to vet") ||
-			strings.Contains(vetOutput, "build constraints exclude all Go files") {
+		if noPackagesToVet(vetOutput) {
 			vetStatus = "OK"
 			addMsg(true, "vet")
 		} else {
@@ -157,6 +164,17 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 	} else {
 		vetStatus = "OK"
 		addMsg(true, "vet")
+	}
+
+	// Style result (the step ran in phase 1). The final gate below fails the suite on styleFailed;
+	// testStatus is not set here because EvaluateTestResults reassigns it.
+	if styleErr != nil {
+		styleFailed = true
+		styleOutput = styleErr.Error()
+	}
+	addMsg(!styleFailed, "style")
+	if styleFailed {
+		g.consoleOutput(styleOutput)
 	}
 
 	// Run tests with coverage and optional race detection
@@ -453,15 +471,12 @@ func (g *Go) runFullTestSuite(moduleName string, skipRace bool, timeoutSec int, 
 
 	// Return error if tests or vet failed
 	summary := fmt.Sprintf("%s%s (%.1fs)", strings.Join(msgs, ", "), g.currentTagSuffix(), time.Since(start).Seconds())
-	if testStatus == "Failed" || vetStatus == "Issues" {
+	if testStatus == "Failed" || vetStatus == "Issues" || styleFailed {
 		return summary, fmt.Errorf("%s", summary)
 	}
 
 	// Badges
 	licenseType := "MIT"
-	if checkFileExists("LICENSE") {
-		// naive check
-	}
 	goVer := GetGoVersion()
 
 	bh := NewBadges()
@@ -1020,7 +1035,7 @@ func mergeCoverProfiles(dst string, srcs ...string) bool {
 	b.WriteByte('\n')
 	for _, key := range order {
 		blk := blocks[key]
-		b.WriteString(fmt.Sprintf("%s %s %d\n", key, blk.stmts, blk.count))
+		fmt.Fprintf(&b, "%s %s %d\n", key, blk.stmts, blk.count)
 	}
 	return os.WriteFile(dst, []byte(b.String()), 0o644) == nil
 }

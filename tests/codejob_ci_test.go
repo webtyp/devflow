@@ -147,8 +147,8 @@ func TestInitAction_Scaffolding(t *testing.T) {
 	defer func() { command.Exec = orig }()
 	command.Exec = func(name string, args ...string) *exec.Cmd {
 		full := name + " " + strings.Join(args, " ")
-		switch {
-		case full == "gh repo view --json owner,name":
+		switch full {
+		case "gh repo view --json owner,name":
 			return exec.Command("echo", `{"owner":{"login":"testowner"},"name":"testrepo"}`)
 		default:
 			return exec.Command("echo", "ok")

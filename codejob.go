@@ -136,11 +136,12 @@ func (c *CodeJob) StatusLine() (string, error) {
 	res := "docs/PLAN.md: " + strings.Join(parts, " · ") + "\n"
 
 	status = strings.ToLower(status)
-	if status == "dispatch" || status == "" {
+	switch status {
+	case "dispatch", "":
 		res += "next: codejob dispatch"
-	} else if status == "running" || status == "reviewing" {
+	case "running", "reviewing":
 		res += "next: codejob pull"
-	} else if status == "review" {
+	case "review":
 		res += "next: codejob pull   (or: codejob close \"message\" when the review is done)"
 	}
 

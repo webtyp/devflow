@@ -284,11 +284,12 @@ func (g *Go) printCascadeReport(report CascadeReport) {
 	g.consoleOutput("--------------------------------------------------")
 	for _, e := range report.Entries {
 		icon := "✅"
-		if e.Status == CascadeStatusFailed {
+		switch e.Status {
+		case CascadeStatusFailed:
 			icon = "❌"
-		} else if e.Status == CascadeStatusSkipped {
+		case CascadeStatusSkipped:
 			icon = "⏭"
-		} else if e.Status == CascadeStatusDepsOnly {
+		case CascadeStatusDepsOnly:
 			icon = "⚠"
 		}
 		g.consoleOutput(fmt.Sprintf("%s %-30s %-10s %s", icon, e.ModulePath, e.Status, e.Detail))

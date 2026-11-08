@@ -72,7 +72,7 @@ func TestDotEnv(t *testing.T) {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	val, ok = env.Get("NAME")
+	_, ok = env.Get("NAME")
 	if ok {
 		t.Error("NAME should have been deleted")
 	}

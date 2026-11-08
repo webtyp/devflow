@@ -15,6 +15,11 @@ import (
 
 const DevFlowRepository = "webtyp.com/devflow"
 
+// oldBadgeImgPattern matches a standalone badge <img> line of the old format.
+const oldBadgeImgPattern = `^\s*<img src=".*badges\.svg">\s*$`
+
+var oldBadgeImgRe = regexp.MustCompile(oldBadgeImgPattern)
+
 // Badges is responsible for creating and managing a collection of badges.
 // It handles parsing input arguments, generating the SVG image, and preparing
 // the necessary markdown to embed the badges in a file.
@@ -262,7 +267,7 @@ func (h *Badges) UpdateReadme() error {
 				break
 			}
 			// Also match old format img lines that need updating
-			if matched, _ := regexp.MatchString(`^\s*<img src=".*badges\.svg">\s*$`, line); matched {
+			if oldBadgeImgRe.MatchString(line) {
 				foundBadgeAt = i
 				break
 			}

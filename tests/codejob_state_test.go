@@ -114,12 +114,12 @@ func TestCheckoutPRBranch_DirtyTreeSuccess(t *testing.T) {
 	command.Exec = func(name string, args ...string) *exec.Cmd {
 		full := name + " " + strings.Join(args, " ")
 		recorded = append(recorded, full)
-		switch {
-		case full == "gh pr view https://github.com/test/pull/1 --json headRefName --jq .headRefName":
+		switch full {
+		case "gh pr view https://github.com/test/pull/1 --json headRefName --jq .headRefName":
 			return exec.Command("echo", "feat-branch")
-		case full == "git status --porcelain":
+		case "git status --porcelain":
 			return exec.Command("echo", " M modified-file.go")
-		case full == "git branch --show-current":
+		case "git branch --show-current":
 			return exec.Command("echo", "feat-branch")
 		default:
 			return exec.Command("true")
@@ -158,14 +158,14 @@ func TestCheckoutPRBranch_PopConflict(t *testing.T) {
 	command.Exec = func(name string, args ...string) *exec.Cmd {
 		full := name + " " + strings.Join(args, " ")
 		recorded = append(recorded, full)
-		switch {
-		case full == "gh pr view https://github.com/test/pull/1 --json headRefName --jq .headRefName":
+		switch full {
+		case "gh pr view https://github.com/test/pull/1 --json headRefName --jq .headRefName":
 			return exec.Command("echo", "feat-branch")
-		case full == "git status --porcelain":
+		case "git status --porcelain":
 			return exec.Command("echo", " M modified-file.go")
-		case full == "git branch --show-current":
+		case "git branch --show-current":
 			return exec.Command("echo", "feat-branch")
-		case full == "git stash pop":
+		case "git stash pop":
 			return exec.Command("sh", "-c", "echo 'conflict'; exit 1")
 		default:
 			return exec.Command("true")
@@ -310,7 +310,7 @@ func TestMergeAndPublish_DirtyStateCommitsBeforeMerge(t *testing.T) {
 	}
 
 	mockPub := &MockPublisher{}
-	devflow.MergeAndPublish(gitmod.RealRunner{}, mockPub, "test", "") //nolint: the result is not relevant; we test the call sequence
+	devflow.MergeAndPublish(gitmod.RealRunner{}, mockPub, "test", "") // the result is not relevant; we test the call sequence
 
 	statusIdx := idxOf("git status --porcelain")
 	addIdx := idxOf("git add .")
@@ -381,7 +381,7 @@ func TestMergeAndPublish_CleanStateSkipsPreCommit(t *testing.T) {
 	}
 
 	mockPub := &MockPublisher{}
-	devflow.MergeAndPublish(gitmod.RealRunner{}, mockPub, "test", "") //nolint: the result is not relevant; we test the call sequence
+	devflow.MergeAndPublish(gitmod.RealRunner{}, mockPub, "test", "") // the result is not relevant; we test the call sequence
 
 	commitIdx := idxOf("git commit -m review:")
 	checkoutIdx := idxOf("git checkout main")
@@ -416,7 +416,7 @@ func TestMergeAndPublish_PushesCommittedCorrections(t *testing.T) {
 	defer func() { command.Exec = orig }()
 	command.Exec = mockFn
 
-	devflow.MergeAndPublish(gitmod.RealRunner{}, &MockPublisher{}, "test", "") //nolint: we test the call sequence
+	devflow.MergeAndPublish(gitmod.RealRunner{}, &MockPublisher{}, "test", "") // we test the call sequence
 
 	pushIdx, mergeIdx := -1, -1
 	for i, c := range *calls {
@@ -588,7 +588,7 @@ func TestMergeAndPublish_UsesMasterWhenThatsTheDefaultBranch(t *testing.T) {
 	command.Exec = mockFn
 
 	mockPub := &MockPublisher{}
-	devflow.MergeAndPublish(gitmod.RealRunner{}, mockPub, "test", "") //nolint: the result is not relevant; we test the call sequence
+	devflow.MergeAndPublish(gitmod.RealRunner{}, mockPub, "test", "") // the result is not relevant; we test the call sequence
 
 	idxOf := func(prefix string) int {
 		for i, c := range recorded {

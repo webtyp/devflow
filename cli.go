@@ -97,12 +97,8 @@ func ParseCodeJobFlags(args []string) CodeJobCLIOpts {
 		}
 	}
 
-	if opts.IsHelp || opts.IsResetGHToken || opts.InitAction || opts.CIPhase != "" {
-		// When flags like --ci or --init-action or --help are passed, we don't strictly require a command.
-		// However, if there are remaining args, we shouldn't necessarily error out, as some tests pass --ci alongside message.
-		// Actually, let's process remaining just in case.
-	}
-
+	// Flags like --ci, --init-action or --help do not require a command; remaining args are
+	// processed anyway because some callers pass --ci alongside a message.
 	if len(remaining) > 0 {
 		cmd := remaining[0]
 		switch cmd {

@@ -262,8 +262,8 @@ func (m *GoModHandler) HasOtherReplaces(exceptModules ...string) bool {
 func (m *GoModHandler) EnsureReplace(modulePath, localPath string) bool {
 	// check if loaded
 	if len(m.Lines) == 0 {
-		if err := m.load(); err != nil {
-		}
+		// A load failure leaves Lines empty; the loop below then finds nothing and adds the directive.
+		_ = m.load()
 	}
 
 	// Check if already exists

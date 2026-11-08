@@ -181,40 +181,40 @@ func SerializeFrontmatter(meta PlanMeta) string {
 	var sb strings.Builder
 	sb.WriteString("---\n")
 	if meta.Message != "" {
-		sb.WriteString(fmt.Sprintf("%s: %q\n", FrontmatterKeyPlan, meta.Message))
+		fmt.Fprintf(&sb, "%s: %q\n", FrontmatterKeyPlan, meta.Message)
 	}
 	if meta.Tag != "" {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeyTag, meta.Tag))
+		fmt.Fprintf(&sb, "%s: %s\n", FrontmatterKeyTag, meta.Tag)
 	}
 	if meta.Executor != "" {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeyExecutor, meta.Executor))
+		fmt.Fprintf(&sb, "%s: %s\n", FrontmatterKeyExecutor, meta.Executor)
 	}
 	if meta.Reviewer != "" {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeyReviewer, meta.Reviewer))
+		fmt.Fprintf(&sb, "%s: %s\n", FrontmatterKeyReviewer, meta.Reviewer)
 	}
 	if meta.Corrector != "" {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeyCorrector, meta.Corrector))
+		fmt.Fprintf(&sb, "%s: %s\n", FrontmatterKeyCorrector, meta.Corrector)
 	}
 	if meta.ReviewGuide != "" {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeyReviewGuide, meta.ReviewGuide))
+		fmt.Fprintf(&sb, "%s: %s\n", FrontmatterKeyReviewGuide, meta.ReviewGuide)
 	}
 	if meta.Status != "" {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeyStatus, meta.Status))
+		fmt.Fprintf(&sb, "%s: %s\n", FrontmatterKeyStatus, meta.Status)
 	}
 	if meta.Session != "" {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeySession, meta.Session))
+		fmt.Fprintf(&sb, "%s: %s\n", FrontmatterKeySession, meta.Session)
 	}
 	if meta.ReviewSession != "" {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeyReviewSession, meta.ReviewSession))
+		fmt.Fprintf(&sb, "%s: %s\n", FrontmatterKeyReviewSession, meta.ReviewSession)
 	}
 	if meta.Round > 0 {
-		sb.WriteString(fmt.Sprintf("%s: %d\n", FrontmatterKeyRound, meta.Round))
+		fmt.Fprintf(&sb, "%s: %d\n", FrontmatterKeyRound, meta.Round)
 	}
 	if meta.PR != "" {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeyPR, meta.PR))
+		fmt.Fprintf(&sb, "%s: %s\n", FrontmatterKeyPR, meta.PR)
 	}
 	if meta.ReviewedCommit != "" {
-		sb.WriteString(fmt.Sprintf("%s: %s\n", FrontmatterKeyReviewedCommit, meta.ReviewedCommit))
+		fmt.Fprintf(&sb, "%s: %s\n", FrontmatterKeyReviewedCommit, meta.ReviewedCommit)
 	}
 	sb.WriteString("---\n")
 	return sb.String()

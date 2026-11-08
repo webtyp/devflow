@@ -35,11 +35,12 @@ Flags:
 	var noCascade bool
 	filteredArgs := []string{os.Args[0]}
 	for _, arg := range os.Args[1:] {
-		if arg == "--skip-race" || arg == "-R" {
+		switch arg {
+		case "--skip-race", "-R":
 			skipRace = true
-		} else if arg == "--no-cascade" {
+		case "--no-cascade":
 			noCascade = true
-		} else {
+		default:
 			filteredArgs = append(filteredArgs, arg)
 		}
 	}

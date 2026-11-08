@@ -87,10 +87,25 @@ This is informational and does not fail the test gate. When `go.mod` is updated 
 ### Without arguments (full suite):
 
 1. Runs `go vet ./...`
-23. Runs `go test -race -cover ./...` (stdlib tests)
+2. Runs the style analyzers (staticcheck `SA`, `S` and `QF` checks) through `go vet -vettool`; any finding fails the suite. See [Style checks](#style-checks).
+3. Runs `go test -race -cover ./...` (stdlib tests)
 4. **Exact weighted coverage** using profile merging (`go tool cover`) across all packages.
 5. Auto-detects and runs WASM tests in a real browser (`wasmbrowsertest`). Detection is by **build tag, not filename**: the WASM suite activates when a package has a test file present in the `GOOS=js GOARCH=wasm` build but absent from the native build — i.e., gated by `//go:build wasm`. The filename is irrelevant.
 Submodules (a subdirectory with its own `go.mod`, e.g. `tests/`) get the same treatment: native tests **and** their own WASM detection and run. A WASM failure in a submodule is reported with its path: `wasm tests ❌`. So `gotest` gives the same verdict at the repo root as inside the submodule.
+
+### Style checks
+
+The `style` step catches what the editor (gopls) already shows as a hint, so it cannot be overlooked. It runs three groups of analyzers from `honnef.co/go/tools`:
+
+| Family | Detects | Example |
+|---|---|---|
+| `SA` | probable bugs | `a == a` |
+| `S` | simplifications | `if ok { return true }; return false` |
+| `QF` | editor quick fixes | `if/else if` chain that should be a `switch` (`QF1003`) |
+
+`ST` (naming and comment style) is **not** included. There is no configuration and no opt-out: fix the code.
+
+The `staticcheck` CLI is not used because it does not report `QF` checks. Instead `gotest` runs `go vet -vettool=<its own binary>` with `GOTEST_STYLE_VETTOOL=1`, and the binary acts as the vet tool. The fast path (`gotest -run ...`) skips this step, like `vet`. Flow: [GOTEST_STYLE.md](diagrams/GOTEST_STYLE.md).
 
 **Destination passes.** When special files or build tags are detected, `gotest` adds passes to verify they compile and run on their target architecture.
 
@@ -152,7 +167,7 @@ installed, the run fails with install instructions
 
 **Full suite (no arguments):**
 ```
-vet ✅, race ✅, tests ✅, wasm ✅, coverage: 85% (12.4s)
+vet ✅, style ✅, race ✅, tests ✅, wasm ✅, coverage: 85% (12.4s)
 ```
 The total execution time is appended in parentheses at the end. Slow tests
 (`⚠️ slow: TestFoo (3.2s)`) are printed on their own line during the run, not

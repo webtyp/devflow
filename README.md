@@ -7,7 +7,7 @@ Complete Go development automation: project init, testing, versioning, updates, 
 ## Commands
 
 - **[gonew](docs/GONEW.md)** - Initialize new Go projects
-- **[gotest](docs/GOTEST.md)** - Run tests, vet, race detection, coverage and badges
+- **[gotest](docs/GOTEST.md)** - Run tests, vet, style checks, race detection, coverage and badges
 - **[gopush](docs/GOPUSH.md)** - Automated publish workflow: test + push + update dependents; test submodules (`tests/go.mod`) are tidied and committed with the root `go.mod`.
 - **[devbackup](docs/DEVBACKUP.md)** - Configure and execute automated backups
 - **[badges](docs/BADGES.md)** - Generate SVG badges for README (test status, coverage, etc.)
@@ -42,7 +42,7 @@ Or install a single command — see each tool's doc linked above.
 - **Smart versioning** - Auto-increments tags, skips duplicates
 - **Multi-account** - Switch GitHub orgs easily (cdvelop, veltylabs, webtyp)
 - **Dependency updates** - Auto-updates dependent modules in workspace
-- **Full testing** - Combines vet, tests, race detection, **exact weighted coverage** across all packages, and **[docs/TESTS.md index check](docs/GOTEST.md)**.
+- **Full testing** - Combines vet, style checks (staticcheck SA, S and QF), tests, race detection, **exact weighted coverage** across all packages, and **[docs/TESTS.md index check](docs/GOTEST.md)**.
 
 ## License
 

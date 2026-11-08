@@ -4,6 +4,8 @@ go 1.26.8
 
 require (
 	golang.org/x/term v0.45.0
+	golang.org/x/tools v0.52.0
+	honnef.co/go/tools v0.7.0
 	webtyp.com/command v0.0.4
 	webtyp.com/git v0.0.8
 	webtyp.com/gorelease v0.1.13
@@ -20,7 +22,10 @@ require (
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/tdewolff/minify/v2 v2.24.8 // indirect
 	github.com/tdewolff/parse/v2 v2.8.5 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
 	golang.org/x/image v0.45.0 // indirect
+	golang.org/x/mod v0.42.0 // indirect
+	golang.org/x/sync v0.24.0 // indirect
 	webtyp.com/artifacts v0.1.1 // indirect
 	webtyp.com/await v0.1.2 // indirect
 	webtyp.com/base64 v0.0.6 // indirect
@@ -55,7 +60,7 @@ require (
 )
 
 require (
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	webtyp.com/context v0.0.23
 	webtyp.com/fmt v1.0.0 // indirect
 	webtyp.com/wizard v0.0.30
