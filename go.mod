@@ -38,7 +38,7 @@ require (
 	webtyp.com/device v0.1.0 // indirect
 	webtyp.com/dom v0.13.29 // indirect
 	webtyp.com/escape v0.1.0 // indirect
-	webtyp.com/fetch v0.1.29 // indirect
+	webtyp.com/fetch v0.1.30 // indirect
 	webtyp.com/filepath v0.1.0 // indirect
 	webtyp.com/files v0.0.4 // indirect
 	webtyp.com/font v0.0.5 // indirect
