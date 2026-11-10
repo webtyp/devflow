@@ -105,6 +105,14 @@ The `style` step catches what the editor (gopls) already shows as a hint, so it 
 
 `ST` (naming and comment style) is **not** included. There is no configuration and no opt-out: fix the code.
 
+Every finding is printed in one pass, never one at a time. A message that repeats is printed once with all its
+locations; a message with a single location, and any line that is not a finding, stay as the tool printed them:
+
+```
+could remove embedded field "Config" from selector in:
+  emit_core.go:359:41, emit_core.go:360:45, emit_core.go:442:20
+```
+
 The `staticcheck` CLI is not used because it does not report `QF` checks. Instead `gotest` runs `go vet -vettool=<its own binary>` with `GOTEST_STYLE_VETTOOL=1`, and the binary acts as the vet tool. The fast path (`gotest -run ...`) skips this step, like `vet`. Flow: [GOTEST_STYLE.md](diagrams/GOTEST_STYLE.md).
 
 **Destination passes.** When special files or build tags are detected, `gotest` adds passes to verify they compile and run on their target architecture.

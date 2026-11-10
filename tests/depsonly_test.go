@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"webtyp.com/command"
+	"webtyp.com/devflow"
 	gitmod "webtyp.com/git"
 )
 
@@ -78,6 +79,7 @@ func TestDepsOnly_RefusedWhenCleanTreeDoesNotCompile(t *testing.T) {
 	g.SetConsoleOutput(func(s string) { out = append(out, s) })
 	g.SetRetryConfig(time.Millisecond, 1)
 
+	goModBefore, _ := os.ReadFile(filepath.Join(depDir, "go.mod"))
 	_, err := g.UpdateDependentModule(depDir, []gitmod.DepBump{{ModulePath: "github.com/test/mylib", NewVersion: "v0.0.1"}}, "")
 	if err == nil || !strings.Contains(err.Error(), "deps only would not compile without the uncommitted changes") {
 		t.Fatalf("want the deps-only refusal, got %v", err)
@@ -85,17 +87,70 @@ func TestDepsOnly_RefusedWhenCleanTreeDoesNotCompile(t *testing.T) {
 	if saw(*calls, "commit") || saw(*calls, "push") {
 		t.Fatalf("a refused deps-only must not commit or push, git calls: %v", *calls)
 	}
-	reverted := false
+	// The restore is by content, never `git checkout --`: that would also discard the developer's own
+	// uncommitted edits of go.mod (2026-11-10, webtyp/app lost its dependency bumps).
 	for _, c := range *calls {
-		if len(c) > 2 && c[0] == "checkout" && c[1] == "--" {
-			reverted = true
+		if len(c) > 1 && c[0] == "checkout" {
+			t.Errorf("go.mod/go.sum must be restored from a snapshot, not git checkout: %v", c)
 		}
 	}
-	if !reverted {
-		t.Errorf("go.mod/go.sum must be restored, git calls: %v", *calls)
+	if goModAfter, _ := os.ReadFile(filepath.Join(depDir, "go.mod")); string(goModAfter) != string(goModBefore) {
+		t.Errorf("go.mod must be byte-for-byte what it was before the attempt.\nbefore:\n%s\nafter:\n%s", goModBefore, goModAfter)
 	}
 	if len(out) == 0 || !strings.Contains(out[len(out)-1], "undefined: migrate.FlagPlan") {
 		t.Errorf("the console line must carry the compile error, got %q", out)
+	}
+}
+
+// TestDepsOnly_UncommittedGoModIsLeftUntouched: a dependent whose go.mod has the developer's own uncommitted
+// edits (a bump, a replace) is skipped before anything is written. Mutating it would mix those edits into the
+// automatic deps-only commit, and a failed gate would throw them away (2026-11-10, webtyp/app).
+func TestDepsOnly_UncommittedGoModIsLeftUntouched(t *testing.T) {
+	depDir := filepath.Join(t.TempDir(), "myapp")
+	os.MkdirAll(depDir, 0o755)
+	committed := "module github.com/test/myapp\n\ngo 1.20\n\nrequire github.com/test/mylib v0.0.0\n"
+	os.WriteFile(filepath.Join(depDir, "go.mod"), []byte(committed), 0o644)
+	for _, args := range [][]string{{"init", "-q"}, {"add", "go.mod"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "a"}} {
+		if out, err := exec.Command("git", append([]string{"-C", depDir}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+	}
+	developerEdit := committed + "\nrequire github.com/test/other v0.2.0 // the developer's own bump\n"
+	os.WriteFile(filepath.Join(depDir, "go.mod"), []byte(developerEdit), 0o644)
+
+	orig := command.Exec
+	t.Cleanup(func() { command.Exec = orig })
+	command.Exec = func(name string, args ...string) *exec.Cmd {
+		joined := strings.Join(args, " ")
+		switch name {
+		case "go":
+			switch joined {
+			case "version":
+				return exec.Command("echo", "go version go1.20 linux/amd64")
+			case "mod tidy":
+				return exec.Command("bash", "-c", "echo '// tidy' >> go.mod")
+			}
+			return exec.Command("true")
+		case "gotest":
+			return exec.Command("echo", "tests ok")
+		}
+		return orig(name, args...) // real git
+	}
+
+	g := newGoHandlerWithMockBackup(t, &MockGitClient{})
+	var out []string
+	g.SetConsoleOutput(func(s string) { out = append(out, s) })
+	g.SetRetryConfig(time.Millisecond, 1)
+
+	outcome, err := g.UpdateDependentModule(depDir, []gitmod.DepBump{{ModulePath: "github.com/test/mylib", NewVersion: "v0.0.1"}}, "")
+	if err != nil {
+		t.Fatalf("an uncommitted go.mod is a skip, not a failure: %v", err)
+	}
+	if outcome.Status != devflow.CascadeStatusSkipped || !strings.Contains(outcome.Reason, "go.mod") {
+		t.Errorf("want a skip that names go.mod, got %+v", outcome)
+	}
+	if after, _ := os.ReadFile(filepath.Join(depDir, "go.mod")); string(after) != developerEdit {
+		t.Errorf("the developer's go.mod must be untouched, got:\n%s", after)
 	}
 }
 

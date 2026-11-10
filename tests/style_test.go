@@ -100,6 +100,34 @@ func TestStyle_BugFails(t *testing.T) {
 	}
 }
 
+// A finding repeated in many places is printed once, with every location after it: the reader fixes one
+// kind of problem at a time and sees how many places it has (2026-11-10: 18 lines of the same message).
+func TestStyle_RepeatedFindingIsGroupedByMessage(t *testing.T) {
+	src := `package main
+
+type Cfg struct{ Out string }
+type C struct{ Cfg }
+
+func (c *C) A() string { return c.Cfg.Out }
+func (c *C) B() string { return c.Cfg.Out + "b" }
+func (c *C) D() string { return c.Cfg.Out + "d" }
+
+func main() {}
+`
+	summary, console := runStyle(t, src)
+	if !strings.Contains(summary, "style ❌") {
+		t.Fatalf("summary %q lacks style ❌", summary)
+	}
+	const msg = `could remove embedded field "Cfg" from selector`
+	if n := strings.Count(console, msg); n != 1 {
+		t.Fatalf("the message must appear once, appeared %d times:\n%s", n, console)
+	}
+	want := msg + " in:\n  main.go:6:35, main.go:7:35, main.go:8:35"
+	if !strings.Contains(console, want) {
+		t.Fatalf("want the grouped form\n%s\ngot:\n%s", want, console)
+	}
+}
+
 func TestStyle_CleanPasses(t *testing.T) {
 	summary, _ := runStyle(t, "package main\n\nfunc main() {}\n")
 	if !strings.Contains(summary, "style ✅") {

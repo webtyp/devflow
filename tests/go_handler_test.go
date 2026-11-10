@@ -379,10 +379,12 @@ func TestUpdateDependentModule(t *testing.T) {
 		t.Errorf("Expected error to contain 'go get failed', got: %v", err)
 	}
 
-	// However, we can verify that the replace was removed BEFORE the go get failure
+	// A failed attempt leaves go.mod exactly as it found it (docs/GOPUSH.md «Revert on failure»): the replace
+	// is removed only on the way to a successful bump. The old `git checkout -- go.mod go.sum` reverted nothing
+	// when go.sum did not exist (git aborts on the missing path) and this test pinned that accident.
 	gomodContent, _ := os.ReadFile(filepath.Join(myappDir, "go.mod"))
-	if strings.Contains(string(gomodContent), "replace github.com/test/mylib") {
-		t.Error("replace directive should have been removed even if go get failed later")
+	if !strings.Contains(string(gomodContent), "replace github.com/test/mylib") {
+		t.Error("the replace directive must be back after the failed go get")
 	}
 }
 

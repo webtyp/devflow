@@ -495,10 +495,31 @@ func (g *Go) UpdateDependentModule(depDir string, bumps []gitmod.DepBump, rootCa
 		}
 	}
 
+	// The developer's own uncommitted edits of go.mod/go.sum are not ours to mix into an automatic commit
+	// nor to throw away when the gate fails: such a dependent is skipped before anything is written.
+	dirty, err := uncommittedModFiles(depDir, modFiles)
+	if err != nil {
+		return g.reportFail(depName, fmt.Errorf("git status failed: %w", err))
+	}
+	if len(dirty) > 0 {
+		reason := strings.Join(dirty, ", ") + " has uncommitted changes"
+		g.consoleOutput(fmt.Sprintf("📦 %s → skip (%s) ⏭", depName, reason))
+		return CascadeOutcome{Status: CascadeStatusSkipped, Reason: reason}, nil
+	}
+
+	// A failed attempt puts back the exact bytes it found. `git checkout --` would also discard edits that
+	// were already there before this attempt began.
+	snapshot, err := snapshotFiles(depDir, modFiles)
+	if err != nil {
+		return g.reportFail(depName, fmt.Errorf("snapshot of %s failed: %w", strings.Join(modFiles, ", "), err))
+	}
 	defer func() {
 		if !success {
-			args := append([]string{"checkout", "--"}, modFiles...)
-			command.RunInDir(depDir, "git", args...)
+			for _, f := range snapshot {
+				if err := f.restore(); err != nil {
+					g.consoleOutput(fmt.Sprintf("📦 %s → ❌ could not restore %s: %v", depName, f.path, err))
+				}
+			}
 		}
 	}()
 
@@ -809,4 +830,70 @@ func firstCompileError(output string) string {
 		}
 	}
 	return "failed"
+}
+
+// uncommittedModFiles lists which of files (relative to dir) differ from HEAD or are untracked. git reports
+// paths from the repository root, so a file matches by its tail.
+func uncommittedModFiles(dir string, files []string) ([]string, error) {
+	out, err := command.RunInDir(dir, "git", append([]string{"status", "--porcelain", "--"}, files...)...)
+	if err != nil {
+		return nil, err
+	}
+	var dirty []string
+	for _, line := range strings.Split(out, "\n") {
+		// command.RunInDir trims the output, so the first line may have lost its leading space: split on
+		// the first blank rather than cutting at a fixed column.
+		fields := strings.SplitN(strings.TrimSpace(line), " ", 2)
+		if len(fields) < 2 {
+			continue
+		}
+		path := strings.TrimSpace(fields[1])
+		for _, f := range files {
+			f = filepath.ToSlash(f)
+			if path == f || strings.HasSuffix(path, "/"+f) {
+				dirty = append(dirty, f)
+				break
+			}
+		}
+	}
+	return dirty, nil
+}
+
+// fileSnapshot is a file's content (or its absence) at one moment, to put back exactly.
+type fileSnapshot struct {
+	path    string
+	data    []byte
+	mode    os.FileMode
+	existed bool
+}
+
+func snapshotFiles(dir string, files []string) ([]fileSnapshot, error) {
+	var out []fileSnapshot
+	for _, f := range files {
+		p := filepath.Join(dir, f)
+		info, err := os.Stat(p)
+		if os.IsNotExist(err) {
+			out = append(out, fileSnapshot{path: p})
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, fileSnapshot{path: p, data: data, mode: info.Mode().Perm(), existed: true})
+	}
+	return out, nil
+}
+
+func (f fileSnapshot) restore() error {
+	if !f.existed {
+		if err := os.Remove(f.path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	return os.WriteFile(f.path, f.data, f.mode)
 }

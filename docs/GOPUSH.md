@@ -37,7 +37,8 @@ gopush 'commit message' [tag]
    - If up-to-date and no `replace` to remove, it is **skipped** (repo untouched).
    - Removes replace directive for published module
    - Runs `go get module@tag` and `go mod tidy`
-   - **Revert on failure**: If tests fail after update, `go.mod`/`go.sum` are reverted.
+   - **Uncommitted `go.mod`/`go.sum`**: a dependent whose `go.mod` or `go.sum` already has the developer's own uncommitted edits is **skipped** before anything is written (`📦 app → skip (go.mod has uncommitted changes) ⏭`): an automatic deps-only commit would carry those edits with it, and a failed gate would discard them.
+   - **Revert on failure**: If the update fails at any step (`go get`, `go mod tidy`, the gate, the deps-only check), `go.mod`/`go.sum` (and those of test submodules) are put back **byte for byte** from a snapshot taken before the first write. `git checkout` is never used: it reverted nothing when `go.sum` did not exist and would also throw away edits made before the attempt.
    When a dependent's gate fails, the line names every failing stage of its `gotest` summary and points to the full output: `📦 auth/tests → wasm ❌ (log: /tmp/gopush-gate-auth-tests.log)`. Its `go.mod`/`go.sum` are restored; reproduce with `gotest` in that directory after `go get <module>@<version>`.
    Each failure is recorded in the ledger (`$XDG_CACHE_HOME/devflow/cascade_failures.json`, fallback `~/.cache/devflow/cascade_failures.json`). At the end of every `gopush` run, open failures are shown:
    ```
