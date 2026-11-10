@@ -1,6 +1,7 @@
 package devflow
 
 import (
+	"errors"
 	"fmt"
 	"webtyp.com/command"
 	gitmod "webtyp.com/git"
@@ -8,6 +9,13 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+// ErrOwnerRequired is returned by Create and AddRemote when no GitHub owner was given. The owner
+// is never guessed (from gh, from git or from neighbor repositories): it decides where the
+// repository is created and the prefix of its module path.
+//
+// Example: gonew my-repo "What it does" --owner webtyp
+var ErrOwnerRequired = errors.New("gonew: no GitHub owner was given, so no repository was created and nothing was changed. Pass --owner with the organization or user that owns the repository, for example: gonew my-repo \"What it does\" --owner webtyp")
 
 // GoNew orchestrator
 type GoNew struct {
@@ -21,7 +29,7 @@ type GoNew struct {
 type NewProjectOptions struct {
 	Name        string // Required, must be valid (alphanumeric, dash, underscore only)
 	Description string // Required, max 350 chars
-	Owner       string // GitHub owner/organization (default: detected from gh or git config)
+	Owner       string // Required: GitHub owner/organization, never guessed (ErrOwnerRequired when empty)
 	Visibility  string // "public" or "private" (default: "public")
 	Directory   string // Supports ~/path, ./path, /abs/path (default: ./{Name})
 	LocalOnly   bool   // If true, skip remote creation
@@ -56,6 +64,9 @@ func (gn *GoNew) SetLog(fn func(...any)) {
 // Create executes full workflow with remote (or local-only fallback)
 func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 	// 1. Validate inputs
+	if opts.Owner == "" {
+		return "", ErrOwnerRequired
+	}
 	if err := ValidateRepoName(opts.Name); err != nil {
 		return "", err
 	}
@@ -106,33 +117,8 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 		return "", fmt.Errorf("git user.email not configured. Run: git config --global user.email \"email@example.com\"")
 	}
 
-	// 3. Determine owner
-	var ghUser string
-	if opts.Owner != "" {
-		// Use specified owner
-		ghUser = opts.Owner
-	} else if owner, neighbor := ownerFromNeighbors(filepath.Dir(targetDir), opts.Name); owner != "" {
-		ghUser = owner
-		gn.log("GitHub owner", owner, "(taken from the origin of neighbor repository", neighbor+")")
-	} else if gn.github != nil {
-		// Auto-detect from gh CLI
-		res, err := gn.github.Get()
-		if err != nil {
-			return "", err
-		}
-		gh := res.(gitmod.GitHubClient)
-
-		ghUser, err = gh.GetCurrentUser()
-		if err != nil && !opts.LocalOnly {
-			// Fallback to git config if gh fails
-			gitUser := strings.ReplaceAll(strings.ToLower(userName), " ", "")
-			ghUser = gitUser
-			gn.log("Warning: could not get GitHub user, using git user:", gitUser)
-		}
-	} else {
-		// Fallback to git config
-		ghUser = strings.ReplaceAll(strings.ToLower(userName), " ", "")
-	}
+	// 3. The owner is always the one given: it is never guessed
+	ghUser := opts.Owner
 
 	// 4. Create remote (if not local-only)
 	// We'll create the empty repo first, then add remote after local setup
@@ -144,30 +130,21 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 		}
 		gh := res.(gitmod.GitHubClient)
 
-		if ghUser == "" {
-			ghUser, err = gh.GetCurrentUser()
-		}
-		if err != nil {
-			// Fallback to local only
-			gn.log("GitHub unavailable:", err)
-			resultSummary = fmt.Sprintf("⚠️ Created: %s [local only] v0.0.1 - %s", opts.Name, gh.GetHelpfulErrorMessage(err))
+		exists, err := gh.RepoExists(ghUser, opts.Name)
+		if err == nil && exists {
+			return "", fmt.Errorf("repository %s/%s already exists on GitHub", ghUser, opts.Name)
+		} else if err != nil {
+			// Network error or other issue
+			gn.log("GitHub check failed:", err)
+			resultSummary = fmt.Sprintf("⚠️ Created: %s [local only] v0.0.1 - gh unavailable", opts.Name)
 		} else {
-			exists, err := gh.RepoExists(ghUser, opts.Name)
-			if err == nil && exists {
-				return "", fmt.Errorf("repository %s/%s already exists on GitHub", ghUser, opts.Name)
-			} else if err != nil {
-				// Network error or other issue
-				gn.log("GitHub check failed:", err)
-				resultSummary = fmt.Sprintf("⚠️ Created: %s [local only] v0.0.1 - gh unavailable", opts.Name)
+			// Create empty remote repo
+			if err := gh.CreateRepo(ghUser, opts.Name, opts.Description, opts.Visibility); err != nil {
+				gn.log("Failed to create remote:", err)
+				resultSummary = fmt.Sprintf("⚠️ Created: %s [local only] v0.0.1 - failed to create remote", opts.Name)
 			} else {
-				// Create empty remote repo
-				if err := gh.CreateRepo(ghUser, opts.Name, opts.Description, opts.Visibility); err != nil {
-					gn.log("Failed to create remote:", err)
-					resultSummary = fmt.Sprintf("⚠️ Created: %s [local only] v0.0.1 - failed to create remote", opts.Name)
-				} else {
-					isRemote = true
-					resultSummary = fmt.Sprintf("✅ Created: %s [local+remote] v0.0.1", opts.Name)
-				}
+				isRemote = true
+				resultSummary = fmt.Sprintf("✅ Created: %s [local+remote] v0.0.1", opts.Name)
 			}
 		}
 	} else {
@@ -257,6 +234,9 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 
 // AddRemote adds GitHub remote to existing local project
 func (gn *GoNew) AddRemote(projectPath, visibility, owner string) (string, error) {
+	if owner == "" {
+		return "", ErrOwnerRequired
+	}
 	// ... Implement AddRemote logic ...
 	// For now, let's implement the basic structure based on spec.
 
@@ -321,25 +301,7 @@ func (gn *GoNew) AddRemote(projectPath, visibility, owner string) (string, error
 		return fmt.Sprintf("Remote 'origin' already configured for %s", repoName), nil
 	}
 
-	// Determine owner
-	var ghUser string
-	if owner != "" {
-		ghUser = owner
-	} else if fromNeighbor, neighbor := ownerFromNeighbors(filepath.Dir(targetDir), repoName); fromNeighbor != "" {
-		ghUser = fromNeighbor
-		gn.log("GitHub owner", fromNeighbor, "(taken from the origin of neighbor repository", neighbor+")")
-	} else {
-		res, err := gn.github.Get()
-		if err != nil {
-			return "", err
-		}
-		gh := res.(gitmod.GitHubClient)
-
-		ghUser, err = gh.GetCurrentUser()
-		if err != nil {
-			return "", fmt.Errorf("GitHub unavailable: %w", err)
-		}
-	}
+	ghUser := owner
 
 	res, err := gn.github.Get()
 	if err != nil {
@@ -418,67 +380,7 @@ func modulePathFromNeighbors(parentDir, name string) (modulePath, neighbor strin
 }
 
 const (
-	gitConfigFileName = "config"
-	originSection     = `[remote "origin"]`
-	gitURLWord        = "url ="
-	githubHTTPS       = "https://github.com/"
-	githubSSH         = "git@github.com:"
-	gitSuffix         = ".git"
 )
-
-// ownerFromNeighbors returns the GitHub owner a new repository called name should have when it
-// is created inside parentDir: the owner of the first sibling (in directory order) whose origin
-// is github.com/<owner>/<its own directory name>. For a directory of webtyp repositories that is
-// "webtyp", whoever is signed in to gh. It returns "" when no sibling qualifies; neighbor is the
-// sibling the owner came from.
-func ownerFromNeighbors(parentDir, name string) (owner, neighbor string) {
-	entries, err := os.ReadDir(parentDir)
-	if err != nil {
-		return "", ""
-	}
-	for _, e := range entries {
-		if !e.IsDir() || e.Name() == name {
-			continue
-		}
-		url := readOriginURL(filepath.Join(parentDir, e.Name(), gitDirName, gitConfigFileName))
-		var path string
-		switch {
-		case strings.HasPrefix(url, githubHTTPS):
-			path = strings.TrimPrefix(url, githubHTTPS)
-		case strings.HasPrefix(url, githubSSH):
-			path = strings.TrimPrefix(url, githubSSH)
-		default:
-			continue
-		}
-		path = strings.TrimSuffix(path, gitSuffix)
-		suffix := "/" + e.Name()
-		if !strings.HasSuffix(path, suffix) || strings.Contains(strings.TrimSuffix(path, suffix), "/") {
-			continue
-		}
-		return strings.TrimSuffix(path, suffix), e.Name()
-	}
-	return "", ""
-}
-
-// readOriginURL returns the url of [remote "origin"] in a git config file, or "" if there is none.
-func readOriginURL(gitConfigPath string) string {
-	content, err := os.ReadFile(gitConfigPath)
-	if err != nil {
-		return ""
-	}
-	inOrigin := false
-	for _, line := range strings.Split(string(content), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "[") {
-			inOrigin = line == originSection
-			continue
-		}
-		if inOrigin && strings.HasPrefix(line, gitURLWord) {
-			return strings.TrimSpace(strings.TrimPrefix(line, gitURLWord))
-		}
-	}
-	return ""
-}
 
 // readModulePath returns the module path declared in a go.mod file, or "" if there is none.
 func readModulePath(goModPath string) string {

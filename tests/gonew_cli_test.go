@@ -46,15 +46,12 @@ func TestParseAddRemoteArgsSpaceSeparated(t *testing.T) {
 }
 
 func TestParseAddRemoteArgsDefaults(t *testing.T) {
-	opts, err := devflow.ParseAddRemoteArgs([]string{"./my-project"})
+	opts, err := devflow.ParseAddRemoteArgs([]string{"./my-project", "--owner=veltylabs"})
 	if err != nil {
 		t.Fatalf("ParseAddRemoteArgs failed: %v", err)
 	}
 	if opts.ProjectPath != "./my-project" {
 		t.Errorf("ProjectPath = %q, want %q", opts.ProjectPath, "./my-project")
-	}
-	if opts.Owner != "" {
-		t.Errorf("Owner = %q, want empty", opts.Owner)
 	}
 	if opts.Visibility != "public" {
 		t.Errorf("Visibility = %q, want %q", opts.Visibility, "public")
@@ -78,8 +75,8 @@ func TestParseGoNewArgs(t *testing.T) {
 	}{
 		{
 			name: "Name and description only",
-			args: []string{"my-repo", "A sample Go project"},
-			want: devflow.GoNewCLIOpts{Name: "my-repo", Description: "A sample Go project", Visibility: "public", License: "MIT"},
+			args: []string{"my-repo", "A sample Go project", "--owner=webtyp"},
+			want: devflow.GoNewCLIOpts{Name: "my-repo", Description: "A sample Go project", Owner: "webtyp", Visibility: "public", License: "MIT"},
 		},
 		{
 			name: "Flags after positional args",
@@ -115,5 +112,14 @@ func TestParseGoNewArgsInsufficientArgs(t *testing.T) {
 		if _, err := devflow.ParseGoNewArgs(args); err == nil {
 			t.Errorf("ParseGoNewArgs(%q) expected error, got nil", args)
 		}
+	}
+}
+
+func TestParseArgsOwnerIsRequired(t *testing.T) {
+	if _, err := devflow.ParseGoNewArgs([]string{"my-repo", "A sample Go project"}); err != devflow.ErrOwnerRequired {
+		t.Errorf("ParseGoNewArgs without owner: got %v, want ErrOwnerRequired", err)
+	}
+	if _, err := devflow.ParseAddRemoteArgs([]string{"./my-project"}); err != devflow.ErrOwnerRequired {
+		t.Errorf("ParseAddRemoteArgs without owner: got %v, want ErrOwnerRequired", err)
 	}
 }

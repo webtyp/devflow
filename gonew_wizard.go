@@ -1,9 +1,7 @@
 package devflow
 
 import (
-	gitmod "webtyp.com/git"
 	"path/filepath"
-	"strings"
 
 	"webtyp.com/context"
 	"webtyp.com/wizard"
@@ -44,25 +42,6 @@ func (gn *GoNew) GetSteps() []*wizard.Step {
 		// Step 3: Project Owner
 		{
 			LabelText: "Project Owner",
-			DefaultFn: func(ctx *context.Context) string {
-				// Try GitHub first
-				if gn.github != nil {
-					if res, err := gn.github.Get(); err == nil {
-						if gh, ok := res.(gitmod.GitHubClient); ok {
-							if user, err := gh.GetCurrentUser(); err == nil && user != "" {
-								return user
-							}
-						}
-					}
-				}
-				// Fallback to Git config
-				if gn.git != nil {
-					if user, err := gn.git.GetConfigUserName(); err == nil && user != "" {
-						return strings.ReplaceAll(strings.ToLower(user), " ", "")
-					}
-				}
-				return ""
-			},
 			OnInputFn: func(in string, ctx *context.Context) (bool, error) {
 				if in == "" {
 					return false, nil

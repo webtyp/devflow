@@ -29,7 +29,7 @@ type AddRemoteCLIOpts struct {
 func ParseGoNewArgs(args []string) (GoNewCLIOpts, error) {
 	fs := flag.NewFlagSet("gonew", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	owner := fs.String("owner", "", "GitHub owner/organization (default: auto-detected from gh or git)")
+	owner := fs.String("owner", "", "GitHub owner/organization (required)")
 	visibility := fs.String("visibility", "public", "Visibility (public/private)")
 	localOnly := fs.Bool("local-only", false, "Skip remote creation entirely")
 	license := fs.String("license", "MIT", "License type (default: MIT)")
@@ -43,7 +43,10 @@ func ParseGoNewArgs(args []string) (GoNewCLIOpts, error) {
 		return GoNewCLIOpts{}, err
 	}
 	if len(positional) < 2 {
-		return GoNewCLIOpts{}, fmt.Errorf("usage: gonew <repo-name> <description> [flags]")
+		return GoNewCLIOpts{}, fmt.Errorf("usage: gonew <repo-name> <description> --owner <owner> [flags]")
+	}
+	if *owner == "" {
+		return GoNewCLIOpts{}, ErrOwnerRequired
 	}
 
 	return GoNewCLIOpts{
@@ -60,7 +63,7 @@ func ParseGoNewArgs(args []string) (GoNewCLIOpts, error) {
 func ParseAddRemoteArgs(args []string) (AddRemoteCLIOpts, error) {
 	fs := flag.NewFlagSet("add-remote", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	owner := fs.String("owner", "", "GitHub owner/organization (default: auto-detected)")
+	owner := fs.String("owner", "", "GitHub owner/organization (required)")
 	visibility := fs.String("visibility", "public", "Visibility (public/private)")
 
 	reorderedArgs, positional := splitFlags(args, map[string]bool{
@@ -71,7 +74,10 @@ func ParseAddRemoteArgs(args []string) (AddRemoteCLIOpts, error) {
 		return AddRemoteCLIOpts{}, err
 	}
 	if len(positional) < 1 {
-		return AddRemoteCLIOpts{}, fmt.Errorf("usage: gonew add-remote <project-path> [flags]")
+		return AddRemoteCLIOpts{}, fmt.Errorf("usage: gonew add-remote <project-path> --owner <owner> [flags]")
+	}
+	if *owner == "" {
+		return AddRemoteCLIOpts{}, ErrOwnerRequired
 	}
 
 	return AddRemoteCLIOpts{

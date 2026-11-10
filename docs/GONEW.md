@@ -37,17 +37,17 @@ graph TD
 
 ```bash
 # Create new project
-gonew <repo-name> <description> [flags]
+gonew <repo-name> <description> --owner <owner> [flags]
 
 # Add remote to existing local project
-gonew add-remote <project-path> [flags]
+gonew add-remote <project-path> --owner <owner> [flags]
 ```
 
 ### Flags
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-owner` | GitHub owner/organization | Auto-detected from `gh` or git config |
+| `--owner` | GitHub owner/organization (`-owner` also works) | **Required.** Never guessed: without it gonew stops and changes nothing |
 | `-visibility` | Repository visibility (`public` or `private`) | `public` |
 | `-local-only` | Skip remote repository creation | `false` |
 | `-license` | License type | `MIT` |
@@ -56,7 +56,7 @@ gonew add-remote <project-path> [flags]
 
 ### Create a new public project
 ```bash
-gonew my-project "A sample Go project"
+gonew my-project "A sample Go project" --owner webtyp
 ```
 
 ### Create project with specific owner/organization
@@ -68,24 +68,24 @@ gonew webapp "Web app" -owner=webtyp
 
 ### Create a private library
 ```bash
-gonew my-lib "Go library" -visibility=private
+gonew my-lib "Go library" --owner webtyp -visibility=private
 ```
 
 ### Create local-only project (no GitHub)
 ```bash
-gonew my-tool "CLI tool" -local-only
+gonew my-tool "CLI tool" --owner webtyp -local-only
 ```
 
 ### Add remote to existing project
 ```bash
-gonew add-remote ./my-project -visibility=public
+gonew add-remote ./my-project --owner webtyp -visibility=public
 gonew add-remote ./my-project -owner=webtyp -visibility=private
 ```
 
 ## Features
 
 - **Strict Validation**: Enforces valid repository names and descriptions.
-- **Smart Defaults**: Auto-detects git user and GitHub owner, generates MIT license.
+- **Explicit owner**: the GitHub owner is always given with `--owner` and never guessed from `gh`, git or neighbor folders (a neighbor left on an old organization once made gonew try to create `tinywasm/backoff`). Generates an MIT license by default.
 - **Multi-Account Support**: Use `--owner` to specify different GitHub accounts/organizations (cdvelop, veltylabs, webtyp, etc.).
 - **Graceful Fallback**: Falls back to local-only mode if GitHub is unavailable.
 - **Project Structure**: Sets up `main` branch, `.gitignore` for Go, and initial version `v0.0.1`.
