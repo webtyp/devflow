@@ -31,7 +31,7 @@ require (
 	webtyp.com/base64 v0.0.6 // indirect
 	webtyp.com/calendar v0.1.0 // indirect
 	webtyp.com/color v0.1.2 // indirect
-	webtyp.com/crud v0.0.10 // indirect
+	webtyp.com/crud v0.0.11 // indirect
 	webtyp.com/crypto v0.0.30 // indirect
 	webtyp.com/css v0.4.30 // indirect
 	webtyp.com/dbus v0.1.1 // indirect
