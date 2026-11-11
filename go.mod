@@ -12,8 +12,8 @@ require (
 	webtyp.com/keyring v0.2.10
 	webtyp.com/lang v0.1.16
 	webtyp.com/markdown v0.0.3
-	webtyp.com/mcp v0.3.24
-	webtyp.com/model v0.2.19
+	webtyp.com/mcp v0.3.28
+	webtyp.com/model v0.2.20
 	webtyp.com/modfind v0.0.11
 )
 
@@ -31,7 +31,7 @@ require (
 	webtyp.com/base64 v0.0.6 // indirect
 	webtyp.com/calendar v0.1.0 // indirect
 	webtyp.com/color v0.1.2 // indirect
-	webtyp.com/crud v0.0.11 // indirect
+	webtyp.com/crud v0.0.15 // indirect
 	webtyp.com/crypto v0.0.30 // indirect
 	webtyp.com/css v0.4.30 // indirect
 	webtyp.com/dbus v0.1.1 // indirect
@@ -51,7 +51,7 @@ require (
 	webtyp.com/js v0.1.0 // indirect
 	webtyp.com/json v0.5.40 // indirect
 	webtyp.com/pwa v0.2.13 // indirect
-	webtyp.com/router v0.4.21 // indirect
+	webtyp.com/router v0.5.0 // indirect
 	webtyp.com/selfupdate v0.0.11 // indirect
 	webtyp.com/sitec v0.2.93 // indirect
 	webtyp.com/storage v0.2.1 // indirect
