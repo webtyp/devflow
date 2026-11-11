@@ -54,7 +54,7 @@ require (
 	webtyp.com/router v0.5.0 // indirect
 	webtyp.com/selfupdate v0.0.11 // indirect
 	webtyp.com/sitec v0.2.93 // indirect
-	webtyp.com/storage v0.2.1 // indirect
+	webtyp.com/storage v0.2.3 // indirect
 	webtyp.com/svg v0.3.30 // indirect
 	webtyp.com/time v0.6.4 // indirect
 	webtyp.com/tinygo v1.0.1 // indirect
