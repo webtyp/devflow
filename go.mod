@@ -66,6 +66,6 @@ require (
 require (
 	golang.org/x/sys v0.49.0 // indirect
 	webtyp.com/context v0.0.23
-	webtyp.com/fmt v1.0.0 // indirect
+	webtyp.com/fmt v1.0.1 // indirect
 	webtyp.com/wizard v0.0.30
 )
