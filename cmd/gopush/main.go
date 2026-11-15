@@ -27,6 +27,7 @@ Examples:
 
 Flags:
     --no-cascade   Publish this module only; do not update dependent modules
+    --keep-replaces   Tag even if go.mod replaces a module that is not published
 
 `)
 	}
@@ -34,6 +35,7 @@ Flags:
 	// Pre-process flags to keep positional args consistent
 	var skipRace bool
 	var noCascade bool
+	var keepReplaces bool
 	filteredArgs := []string{os.Args[0]}
 	for _, arg := range os.Args[1:] {
 		switch arg {
@@ -41,6 +43,8 @@ Flags:
 			skipRace = true
 		case "--no-cascade":
 			noCascade = true
+		case "--keep-replaces":
+			keepReplaces = true
 		default:
 			filteredArgs = append(filteredArgs, arg)
 		}
@@ -80,6 +84,7 @@ Flags:
 		os.Exit(1)
 	}
 	goHandler.SetSumDBClient(&gitmod.HTTPSumDB{})
+	goHandler.SetKeepReplaces(keepReplaces)
 
 	// Run Push with parsed options
 	summary, err := goHandler.Push(message, tag, false, skipRace, noCascade, false, false, false, "")

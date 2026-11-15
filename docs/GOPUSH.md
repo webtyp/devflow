@@ -14,6 +14,7 @@ gopush 'commit message' [tag]
 - **tag**: Optional. The tag to create. If not provided, it will be auto-generated.
 - **--skip-race** or **-R**: Optional. Skip race detection tests (only applicable to Go projects).
 - **--no-cascade**: Optional. Publish this module only; do not update dependent modules.
+- **--keep-replaces**: Optional. Before it creates a tag, gopush reconciles this module's own `go.mod`: a replaced module that is published is required at its tag and the replace dropped; one that is not published refuses the tag. This flag tags anyway, knowing the `go.mod` only builds on this machine.
 
 ## Behavior
 

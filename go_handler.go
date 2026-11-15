@@ -29,6 +29,7 @@ type Go struct {
 	sumdb                 gitmod.SumDBClient
 	cascadeLedger         string
 	isCascadeDependent    bool
+	keepReplaces          bool // publish with a local replace of an unpublished module (gopush --keep-replaces)
 }
 
 // GoVersion reads the Go version from the go.mod file in the current directory.
@@ -283,6 +284,13 @@ func (g *Go) Push(message, tag string, skipTests, skipRace, skipDependents, skip
 	if !skipVerify {
 		if err := g.Verify(); err != nil {
 			return gitmod.PushResult{}, fmt.Errorf("go mod verify failed: %w", err)
+		}
+	}
+
+	// 1.5 A tag is about to be created: go.mod must not carry local replaces of other modules (see go_replaces.go)
+	if !skipTag {
+		if err := g.reconcileOwnReplaces(); err != nil {
+			return gitmod.PushResult{}, err
 		}
 	}
 
