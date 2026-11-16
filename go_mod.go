@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"webtyp.com/command"
+	wpath "webtyp.com/filepath"
 	gitmod "webtyp.com/git"
 	"webtyp.com/modfind"
 )
@@ -27,6 +28,13 @@ type GoModHandler struct {
 	log             func(messages ...any)
 	knownReplaces   map[string]string
 	OnSSRFileChange func(moduleDir string) // called when ssr.go changes in a watched module
+
+	// Operation tracking for batching multiple reconcile events within the same second
+	lastOpID     string
+	batchSec     int64
+	batchKey     string
+	batchAdded   []string
+	batchRemoved []string
 }
 
 // ReplaceEntry represents a local replace directive found in go.mod
@@ -363,6 +371,14 @@ func (g *GoModHandler) Name() string {
 	return "GOMOD"
 }
 
+func (g *GoModHandler) GetLastOperationID() string {
+	return g.lastOpID
+}
+
+func (g *GoModHandler) SetLastOperationID(id string) {
+	g.lastOpID = id
+}
+
 func (g *GoModHandler) MainInputFileRelativePath() string {
 	return "go.mod"
 }
@@ -428,27 +444,64 @@ func (g *GoModHandler) reconcilePaths(entries []ReplaceEntry) {
 		return
 	}
 
+	var added []string
 	// Add new paths
 	for mod, path := range newMap {
 		if _, exists := g.currentPaths[mod]; !exists {
-			g.log("GoModHandler: Watching external module:", path)
+			added = append(added, path)
 			if err := g.watcher.AddDirectoriesToWatch(path); err != nil {
 				g.log("Frontend Error: Failed to watch external module:", path, err)
 			}
 		}
 	}
 
+	var removed []string
 	// Remove old paths
 	for mod, path := range g.currentPaths {
 		if _, exists := newMap[mod]; !exists {
-			g.log("GoModHandler: Stop watching external module:", path)
+			removed = append(removed, path)
 			if err := g.watcher.RemoveDirectoriesFromWatcher(path); err != nil {
 				g.log("Frontend Error: Failed to remove watch for external module:", path, err)
 			}
 		}
 	}
 
+	nowSec := time.Now().Unix()
+	if nowSec != g.batchSec {
+		g.batchSec = nowSec
+		g.batchKey = fmt.Sprintf("gomod-%d", time.Now().UnixNano())
+		g.batchAdded = nil
+		g.batchRemoved = nil
+	}
+
+	if len(added) > 0 {
+		g.batchAdded = appendUniquePaths(g.batchAdded, added)
+		g.SetLastOperationID(g.batchKey + "-add")
+		g.log("Watching external modules:", wpath.CompactList(g.batchAdded))
+	}
+	if len(removed) > 0 {
+		g.batchRemoved = appendUniquePaths(g.batchRemoved, removed)
+		g.SetLastOperationID(g.batchKey + "-rem")
+		g.log("Stop watching external modules:", wpath.CompactList(g.batchRemoved))
+	}
+
 	g.currentPaths = newMap
+}
+
+func appendUniquePaths(dst, src []string) []string {
+	for _, s := range src {
+		found := false
+		for _, d := range dst {
+			if d == s {
+				found = true
+				break
+			}
+		}
+		if !found {
+			dst = append(dst, s)
+		}
+	}
+	return dst
 }
 
 // GetModulePath gets full module path
