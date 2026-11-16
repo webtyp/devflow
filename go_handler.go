@@ -794,9 +794,10 @@ func depsOnlyCompiles(depDir string, files []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// The worktree sits next to the repository, in the same parent directory: a relative replace (../devtui, or
-	// ../ from a test submodule) then points where it points from the real checkout.
-	wt, err := os.MkdirTemp(filepath.Dir(top), ".gopush-depsonly-"+filepath.Base(top)+"-")
+	// The worktree lives in the system temp directory, never beside the repository: the editor watches the workspace,
+	// runs `go env GOMOD` in any folder that appears there and reports "getwd: no such file or directory" when it is
+	// deleted. Relative replaces that leave the repository are made absolute in the copied go.mod files below.
+	wt, err := os.MkdirTemp("", ".gopush-depsonly-"+filepath.Base(top)+"-")
 	if err != nil {
 		return "", err
 	}
@@ -822,6 +823,13 @@ func depsOnlyCompiles(depDir string, files []string) (string, error) {
 		}
 	}
 	for _, dir := range append([]string{wtDep}, findSubModuleDirs(wtDep)...) {
+		relDir, err := filepath.Rel(wt, dir)
+		if err != nil {
+			return "", err
+		}
+		if err := rewriteRelativeReplaces(filepath.Join(dir, "go.mod"), filepath.Join(top, relDir), top); err != nil {
+			return "", err
+		}
 		if out, err := command.RunInDir(dir, "go", "vet", "./..."); err != nil {
 			return out, err
 		}

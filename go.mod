@@ -3,6 +3,7 @@ module webtyp.com/devflow
 go 1.26.8
 
 require (
+	golang.org/x/mod v0.42.0
 	golang.org/x/term v0.45.0
 	golang.org/x/tools v0.52.0
 	honnef.co/go/tools v0.7.0
@@ -24,7 +25,6 @@ require (
 	github.com/tdewolff/parse/v2 v2.8.5 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
 	golang.org/x/image v0.45.0 // indirect
-	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	webtyp.com/artifacts v0.1.1 // indirect
 	webtyp.com/await v0.1.2 // indirect

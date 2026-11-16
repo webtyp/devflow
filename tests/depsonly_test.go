@@ -194,10 +194,10 @@ func TestDepsOnly_CleanTreeIsTheLastCommit(t *testing.T) {
 	}
 }
 
-// TestDepsOnly_RelativeReplaceResolvesBesideTheRepo: a dependent whose go.mod has `replace … => ../lib` compiles in
-// the temporary tree too — it sits next to the repository, so ../lib is the same sibling (2026-11-06: app and
-// dbsync/tests were refused because the tree lived in /tmp).
-func TestDepsOnly_RelativeReplaceResolvesBesideTheRepo(t *testing.T) {
+// TestDepsOnly_RelativeReplaceStillResolves: a dependent whose go.mod has `replace … => ../lib` compiles in
+// the temporary tree too — the replace is made absolute there (2026-11-06: app and
+// dbsync/tests were refused when the tree lived in /tmp with the replace left relative).
+func TestDepsOnly_RelativeReplaceStillResolves(t *testing.T) {
 	root := t.TempDir()
 	lib := filepath.Join(root, "lib")
 	os.MkdirAll(lib, 0o755)
@@ -234,5 +234,72 @@ func TestDepsOnly_RelativeReplaceResolvesBesideTheRepo(t *testing.T) {
 	}
 	if entries, _ := os.ReadDir(root); len(entries) != 2 {
 		t.Errorf("the temporary tree must be removed from beside the repo, got %d entries", len(entries))
+	}
+}
+
+// TestDepsOnly_WorktreeLivesOutsideTheWorkspace: the temporary tree must not appear inside the directory that holds
+// the repositories — the editor (gopls, the Go extension) watches it, runs `go env GOMOD` in the new folder, and when
+// gopush deletes it the editor reports "getwd: no such file or directory" (2026-11-16).
+func TestDepsOnly_WorktreeLivesOutsideTheWorkspace(t *testing.T) {
+	root := t.TempDir() // stands for the workspace: the directory that holds the repositories
+	depDir := filepath.Join(root, "myapp")
+	os.MkdirAll(depDir, 0o755)
+	os.WriteFile(filepath.Join(depDir, "go.mod"), []byte("module github.com/test/myapp\n\ngo 1.20\n"), 0o644)
+	os.WriteFile(filepath.Join(depDir, "a.go"), []byte("package myapp\n\nfunc A() int { return 1 }\n"), 0o644)
+	for _, args := range [][]string{{"init", "-q"}, {"add", "go.mod", "a.go"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "a"}} {
+		if out, err := exec.Command("git", append([]string{"-C", depDir}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+	}
+	seen := filepath.Join(t.TempDir(), "vet-cwd")
+	depsOnlyExec(t, depDir, func() *exec.Cmd {
+		return exec.Command("bash", "-c", "pwd -P > "+seen) // runs where RunInDir sets cmd.Dir: the temporary tree
+	}, true)
+
+	g := newGoHandlerWithMockBackup(t, &MockGitClient{})
+	g.SetConsoleOutput(func(string) {})
+	g.SetRetryConfig(time.Millisecond, 1)
+	if _, err := g.UpdateDependentModule(depDir, []gitmod.DepBump{{ModulePath: "github.com/test/other", NewVersion: "v0.0.1"}}, ""); err != nil {
+		t.Fatalf("deps-only must proceed: %v", err)
+	}
+	b, err := os.ReadFile(seen)
+	if err != nil {
+		t.Fatalf("go vet never ran in the temporary tree: %v", err)
+	}
+	realRoot, _ := filepath.EvalSymlinks(root)
+	if cwd := strings.TrimSpace(string(b)); strings.HasPrefix(cwd, realRoot+string(filepath.Separator)) {
+		t.Errorf("go vet ran inside the workspace (%s): the editor sees the folder appear and vanish", cwd)
+	}
+}
+
+// TestDepsOnly_SubmoduleReplaceToRepoRootStillResolves: tests/go.mod with `replace … => ../` points at the copy of the
+// root inside the temporary tree, so it stays relative.
+func TestDepsOnly_SubmoduleReplaceToRepoRootStillResolves(t *testing.T) {
+	depDir := filepath.Join(t.TempDir(), "myapp")
+	os.MkdirAll(filepath.Join(depDir, "tests"), 0o755)
+	os.WriteFile(filepath.Join(depDir, "go.mod"), []byte("module github.com/test/myapp\n\ngo 1.20\n"), 0o644)
+	os.WriteFile(filepath.Join(depDir, "a.go"), []byte("package myapp\n\nfunc A() int { return 1 }\n"), 0o644)
+	os.WriteFile(filepath.Join(depDir, "tests", "go.mod"), []byte("module github.com/test/myapp/tests\n\ngo 1.20\n\nrequire github.com/test/myapp v0.0.0\n\nreplace github.com/test/myapp => ../\n"), 0o644)
+	os.WriteFile(filepath.Join(depDir, "tests", "a_test.go"), []byte("package tests\n\nimport (\n\t\"testing\"\n\n\t\"github.com/test/myapp\"\n)\n\nfunc TestA(t *testing.T) { _ = myapp.A() }\n"), 0o644)
+	for _, args := range [][]string{{"init", "-q"}, {"add", "."}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "a"}} {
+		if out, err := exec.Command("git", append([]string{"-C", depDir}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+	}
+	orig := command.Exec
+	depsOnlyExec(t, depDir, func() *exec.Cmd { return nil }, true)
+	command.Exec = func(prev func(string, ...string) *exec.Cmd) func(string, ...string) *exec.Cmd {
+		return func(name string, args ...string) *exec.Cmd {
+			if name == "go" && strings.Join(args, " ") == "vet ./..." {
+				return orig(name, args...)
+			}
+			return prev(name, args...)
+		}
+	}(command.Exec)
+	g := newGoHandlerWithMockBackup(t, &MockGitClient{})
+	g.SetConsoleOutput(func(string) {})
+	g.SetRetryConfig(time.Millisecond, 1)
+	if _, err := g.UpdateDependentModule(depDir, []gitmod.DepBump{{ModulePath: "github.com/test/other", NewVersion: "v0.0.1"}}, ""); err != nil {
+		t.Fatalf("submodule replace => ../ must resolve in the temporary tree: %v", err)
 	}
 }
