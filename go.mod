@@ -9,7 +9,7 @@ require (
 	honnef.co/go/tools v0.7.0
 	webtyp.com/command v0.0.4
 	webtyp.com/filepath v0.1.3
-	webtyp.com/git v0.0.8
+	webtyp.com/git v0.0.10
 	webtyp.com/gorelease v0.1.13
 	webtyp.com/keyring v0.2.10
 	webtyp.com/lang v0.1.16
