@@ -32,6 +32,14 @@ type Go struct {
 	keepReplaces          bool // publish with a local replace of an unpublished module (gopush --keep-replaces)
 }
 
+func (g *Go) headTagged() bool {
+	if g.rootDir == "" {
+		return true
+	}
+	out, err := command.Exec("git", "-C", g.rootDir, "describe", "--tags", "--exact-match", "HEAD").Output()
+	return err == nil && strings.TrimSpace(string(out)) != ""
+}
+
 // GoVersion reads the Go version from the go.mod file in the current directory.
 // It returns the version string (e.g., "1.18") or an empty string if not found.
 func (g *Go) GoVersion() (string, error) {
@@ -244,7 +252,7 @@ func (g *Go) Push(message, tag string, skipTests, skipRace, skipDependents, skip
 
 	// 0. Early exit if nothing to push
 	hasPending, _ := g.git.HasPendingChanges()
-	if !hasPending {
+	if !hasPending && (skipTag || g.headTagged()) {
 		return gitmod.PushResult{Summary: "Nothing to push"}, nil
 	}
 
