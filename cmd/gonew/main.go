@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	gitmod "webtyp.com/git"
 	"os"
@@ -14,8 +15,8 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "add-remote" {
 		opts, err := devflow.ParseAddRemoteArgs(os.Args[2:])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			exitWithHelp(err)
+			return
 		}
 		handleAddRemote(opts)
 		return
@@ -23,10 +24,19 @@ func main() {
 
 	opts, err := devflow.ParseGoNewArgs(os.Args[1:])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		exitWithHelp(err)
+		return
 	}
 	handleCreate(opts)
+}
+
+func exitWithHelp(err error) {
+	if errors.Is(err, devflow.ErrOwnerRequired) {
+		fmt.Fprintf(os.Stderr, "Error: %v\n\n", err)
+		fmt.Print(devflow.GoNewHelpText())
+		os.Exit(1)
+	}
+	fmt.Print(devflow.GoNewHelpText())
 }
 
 func handleCreate(opts devflow.GoNewCLIOpts) {

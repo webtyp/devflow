@@ -7,6 +7,39 @@ import (
 	"strings"
 )
 
+// GoNewHelpText returns the CLI help and usage text for gonew.
+func GoNewHelpText() string {
+	return `gonew - Create new Go projects with GitHub remote, git init, and license
+
+Usage:
+  gonew <repo-name> <description> --owner <owner> [flags]
+  gonew add-remote <project-path> --owner <owner> [flags]
+
+Flags:
+  --owner <owner>        GitHub owner/organization (required, -owner also works)
+  --visibility <mode>    Repository visibility: public or private (default: public)
+  --local-only           Skip remote repository creation (default: false)
+  --license <type>       License type (default: MIT)
+
+Help:
+  help, --help, -help, -h, h, ?, -?    Show this help message
+
+Examples:
+  gonew my-project "A sample Go project" --owner webtyp
+  gonew my-lib "Go library" --owner webtyp -visibility=private
+  gonew my-tool "CLI tool" --owner webtyp -local-only
+  gonew add-remote ./my-project --owner webtyp -visibility=public
+`
+}
+
+func isHelpToken(s string) bool {
+	switch strings.ToLower(s) {
+	case "help", "-help", "--help", "h", "-h", "?", "-?":
+		return true
+	}
+	return false
+}
+
 // GoNewCLIOpts holds parsed options for the gonew create CLI.
 type GoNewCLIOpts struct {
 	Name        string
@@ -27,6 +60,9 @@ type AddRemoteCLIOpts struct {
 // ParseGoNewArgs parses `gonew <repo-name> <description> [flags]`.
 // Flags may appear before or after the positional arguments.
 func ParseGoNewArgs(args []string) (GoNewCLIOpts, error) {
+	if len(args) > 0 && isHelpToken(args[0]) {
+		return GoNewCLIOpts{}, flag.ErrHelp
+	}
 	fs := flag.NewFlagSet("gonew", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	owner := fs.String("owner", "", "GitHub owner/organization (required)")
@@ -61,6 +97,9 @@ func ParseGoNewArgs(args []string) (GoNewCLIOpts, error) {
 
 // ParseAddRemoteArgs parses `gonew add-remote <project-path> [flags]`.
 func ParseAddRemoteArgs(args []string) (AddRemoteCLIOpts, error) {
+	if len(args) > 0 && isHelpToken(args[0]) {
+		return AddRemoteCLIOpts{}, flag.ErrHelp
+	}
 	fs := flag.NewFlagSet("add-remote", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	owner := fs.String("owner", "", "GitHub owner/organization (required)")

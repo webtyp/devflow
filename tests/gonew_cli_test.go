@@ -1,6 +1,11 @@
 package devflow_test
 
 import (
+	"errors"
+	"flag"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"webtyp.com/devflow"
@@ -121,5 +126,64 @@ func TestParseArgsOwnerIsRequired(t *testing.T) {
 	}
 	if _, err := devflow.ParseAddRemoteArgs([]string{"./my-project"}); err != devflow.ErrOwnerRequired {
 		t.Errorf("ParseAddRemoteArgs without owner: got %v, want ErrOwnerRequired", err)
+	}
+}
+
+func TestParseArgsHelpTokens(t *testing.T) {
+	for _, tok := range []string{"help", "--help", "-help", "-h", "h", "?", "-?"} {
+		if _, err := devflow.ParseGoNewArgs([]string{tok}); !errors.Is(err, flag.ErrHelp) {
+			t.Errorf("ParseGoNewArgs(%q) err = %v, want flag.ErrHelp", tok, err)
+		}
+		if _, err := devflow.ParseAddRemoteArgs([]string{tok}); !errors.Is(err, flag.ErrHelp) {
+			t.Errorf("ParseAddRemoteArgs(%q) err = %v, want flag.ErrHelp", tok, err)
+		}
+	}
+}
+
+func TestGoNewBinaryAlwaysShowsHelp(t *testing.T) {
+	bin := filepath.Join(t.TempDir(), "gonew")
+	build := exec.Command("go", "build", "-o", bin, "../cmd/gonew")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("go build failed: %v\n%s", err, out)
+	}
+
+	helpCases := [][]string{
+		nil,
+		{"--help"},
+		{"-h"},
+		{"-help"},
+		{"help"},
+		{"help", "anything"},
+		{"?"},
+		{"foo"},
+		{"--unknown"},
+		{"add-remote"},
+		{"add-remote", "--help"},
+		{"add-remote", "--unknown"},
+	}
+
+	for _, args := range helpCases {
+		out, err := exec.Command(bin, args...).CombinedOutput()
+		if err != nil {
+			t.Errorf("gonew %v exited with error: %v\n%s", args, err, out)
+			continue
+		}
+		s := string(out)
+		if strings.Contains(s, "Error:") {
+			t.Errorf("gonew %v printed unexpected Error:\n%s", args, s)
+		}
+		if !strings.Contains(s, "Usage:") {
+			t.Errorf("gonew %v did not print usage help:\n%s", args, s)
+		}
+	}
+
+	// Missing --owner still reports error AND shows help.
+	out, err := exec.Command(bin, "my-repo", "desc").CombinedOutput()
+	if err == nil {
+		t.Errorf("gonew my-repo desc expected non-zero exit when --owner is missing")
+	}
+	s := string(out)
+	if !strings.Contains(s, "Error:") || !strings.Contains(s, "Usage:") {
+		t.Errorf("gonew my-repo desc expected Error and Usage, got:\n%s", s)
 	}
 }
