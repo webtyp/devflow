@@ -51,7 +51,7 @@ require (
 	webtyp.com/image v0.1.16 // indirect
 	webtyp.com/js v0.1.0 // indirect
 	webtyp.com/json v0.5.40 // indirect
-	webtyp.com/pwa v0.2.13 // indirect
+	webtyp.com/pwa v0.2.24 // indirect
 	webtyp.com/router v0.5.0 // indirect
 	webtyp.com/selfupdate v0.0.11 // indirect
 	webtyp.com/sitec v0.2.93 // indirect
