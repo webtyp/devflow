@@ -54,7 +54,7 @@ require (
 	webtyp.com/pwa v0.2.24 // indirect
 	webtyp.com/router v0.5.8 // indirect
 	webtyp.com/selfupdate v0.0.11 // indirect
-	webtyp.com/sitec v0.2.99 // indirect
+	webtyp.com/sitec v0.2.100 // indirect
 	webtyp.com/storage v0.2.3 // indirect
 	webtyp.com/svg v0.3.43 // indirect
 	webtyp.com/time v0.6.7 // indirect
