@@ -35,7 +35,10 @@ func runStyleFiles(t *testing.T, files map[string]string) (summary, console stri
 	g, _ := devflow.NewGo(git)
 	g.SetRootDir(dir)
 	var out strings.Builder
-	g.SetConsoleOutput(func(s string) { out.WriteString(s + "\n") })
+	g.SetConsoleOutput(func(s string) {
+		out.WriteString(s)
+		out.WriteByte('\n')
+	})
 
 	origCmd, origExec := devflow.GoTestCmdFn, command.Exec
 	t.Cleanup(func() { devflow.GoTestCmdFn, command.Exec = origCmd, origExec })
@@ -131,9 +134,23 @@ func main() {}
 	if n := strings.Count(console, msg); n != 1 {
 		t.Fatalf("the message must appear once, appeared %d times:\n%s", n, console)
 	}
-	want := msg + " in:\n  main.go:6:35, main.go:7:35, main.go:8:35"
+	want := msg + " in:\n  main.go:6:35, 7:35, 8:35"
 	if !strings.Contains(console, want) {
 		t.Fatalf("want the grouped form\n%s\ngot:\n%s", want, console)
+	}
+}
+
+func TestStyle_RepeatedFindingAcrossFilesSeparatesByFile(t *testing.T) {
+	summary, console := runStyleFiles(t, map[string]string{
+		"a.go": "package main\n\ntype Cfg struct{ Out string }\ntype C struct{ Cfg }\n\nfunc (c *C) A() string { return c.Cfg.Out }\nfunc (c *C) B() string { return c.Cfg.Out + \"b\" }\n",
+		"b.go": "package main\n\nfunc (c *C) D() string { return c.Cfg.Out + \"d\" }\n",
+	})
+	if !strings.Contains(summary, "style ❌") {
+		t.Fatalf("summary %q lacks style ❌", summary)
+	}
+	const want = `could remove embedded field "Cfg" from selector in:` + "\n  a.go:6:35, 7:35; b.go:3:35"
+	if !strings.Contains(console, want) {
+		t.Fatalf("want\n%s\ngot:\n%s", want, console)
 	}
 }
 
@@ -169,9 +186,58 @@ func main() { _ = &srv{} }
 
 func TestStyle_UsedOnlyInTestPasses(t *testing.T) {
 	summary, console := runStyleFiles(t, map[string]string{
-		"main.go":      "package main\n\nfunc helper() int { return 42 }\n\nfunc main() {}\n",
-		"lib_test.go":  "package main\n\nimport \"testing\"\n\nfunc TestHelper(t *testing.T) { _ = helper() }\n",
+		"main.go":     "package main\n\nfunc helper() int { return 42 }\n\nfunc main() {}\n",
+		"lib_test.go": "package main\n\nimport \"testing\"\n\nfunc TestHelper(t *testing.T) { _ = helper() }\n",
 	})
+	if !strings.Contains(summary, "style ✅") {
+		t.Fatalf("summary %q console %q", summary, console)
+	}
+}
+
+func TestStyle_WriteStringConcatFails(t *testing.T) {
+	src := `package main
+
+import (
+	"bytes"
+	"strings"
+)
+
+func Build(s string) string {
+	var b strings.Builder
+	b.WriteString("\t" + s + "\n")
+	var buf bytes.Buffer
+	buf.WriteString(s + "\n")
+	return b.String() + buf.String()
+}
+
+func main() {}
+`
+	summary, console := runStyle(t, src)
+	if !strings.Contains(summary, "style ❌") {
+		t.Fatalf("summary %q lacks style ❌", summary)
+	}
+	const want = "inefficient string concatenation in call to WriteString"
+	if !strings.Contains(console, want) {
+		t.Fatalf("console %q lacks %q", console, want)
+	}
+}
+
+func TestStyle_WriteStringConstPasses(t *testing.T) {
+	src := `package main
+
+import "strings"
+
+const prefix = "a"
+
+func Build() string {
+	var b strings.Builder
+	b.WriteString(prefix + "b")
+	return b.String()
+}
+
+func main() {}
+`
+	summary, console := runStyle(t, src)
 	if !strings.Contains(summary, "style ✅") {
 		t.Fatalf("summary %q console %q", summary, console)
 	}

@@ -40,10 +40,11 @@ func MaybeRunStyleTool() {
 	unitchecker.Main(styleAnalyzers()...)
 }
 
-// styleAnalyzers lists SA (bugs), S (simplifications) and QF (quick fixes).
+// styleAnalyzers lists SA (bugs), S (simplifications), QF (quick fixes),
+// and writestring (inefficient WriteString concatenation).
 // ST (naming and comment style) is deliberately absent.
 func styleAnalyzers() []*analysis.Analyzer {
-	var all []*analysis.Analyzer
+	all := []*analysis.Analyzer{writeStringAnalyzer}
 	for _, group := range [][]*lint.Analyzer{quickfix.Analyzers, simple.Analyzers, staticcheck.Analyzers} {
 		for _, l := range group {
 			all = append(all, l.Analyzer)

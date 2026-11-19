@@ -81,13 +81,15 @@ type styleLocation struct {
 
 func (l styleLocation) String() string { return fmt.Sprintf("%s:%d:%d", l.file, l.line, l.col) }
 
-// groupStyleFindings prints a message once with all its locations when it repeats:
+// groupStyleFindings prints a message once with all its locations when it repeats,
+// omitting the file name after its first mention:
 //
 //	could remove embedded field "Config" from selector in:
-//	  emit_core.go:359:41, emit_core.go:360:45
+//	  emit_core.go:359:41, 360:45
 //
-// A message with one location, and any line that is not a finding (package headers, tool errors),
-// stays exactly as the tool printed it. Messages keep the order in which they first appeared.
+// Different files are separated by "; ". A message with one location, and any line
+// that is not a finding (package headers, tool errors), stays as the tool printed it.
+// Messages keep the order in which they first appeared.
 func groupStyleFindings(output string) string {
 	var order []string // messages, or the raw line for non-findings
 	locations := map[string][]styleLocation{}
@@ -112,7 +114,8 @@ func groupStyleFindings(output string) string {
 	var b strings.Builder
 	for _, key := range order {
 		if line, isRaw := raw[key]; isRaw && strings.HasPrefix(key, "\x00raw:") {
-			b.WriteString(line + "\n")
+			b.WriteString(line)
+			b.WriteByte('\n')
 			continue
 		}
 		locs := locations[key]
@@ -126,14 +129,30 @@ func groupStyleFindings(output string) string {
 			return locs[i].col < locs[j].col
 		})
 		if len(locs) == 1 {
-			b.WriteString(locs[0].String() + ": " + key + "\n")
+			b.WriteString(locs[0].String())
+			b.WriteString(": ")
+			b.WriteString(key)
+			b.WriteByte('\n')
 			continue
 		}
-		parts := make([]string, len(locs))
+		b.WriteString(key)
+		b.WriteString(" in:\n  ")
 		for i, l := range locs {
-			parts[i] = l.String()
+			if i == 0 {
+				b.WriteString(l.String())
+				continue
+			}
+			if l.file == locs[i-1].file {
+				b.WriteString(", ")
+				b.WriteString(strconv.Itoa(l.line))
+				b.WriteByte(':')
+				b.WriteString(strconv.Itoa(l.col))
+				continue
+			}
+			b.WriteString("; ")
+			b.WriteString(l.String())
 		}
-		b.WriteString(key + " in:\n  " + strings.Join(parts, ", ") + "\n")
+		b.WriteByte('\n')
 	}
 	return b.String()
 }
