@@ -344,6 +344,10 @@ func (m *GoModHandler) RunTidy() error {
 }
 
 func (g *GoModHandler) SetRootDir(path string) {
+	if g.rootDir != path {
+		g.Lines = nil
+		g.Modified = false
+	}
 	g.rootDir = path
 }
 

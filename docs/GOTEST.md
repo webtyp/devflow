@@ -95,13 +95,14 @@ Submodules (a subdirectory with its own `go.mod`, e.g. `tests/`) get the same tr
 
 ### Style checks
 
-The `style` step catches what the editor (gopls) already shows as a hint, so it cannot be overlooked. It runs three groups of analyzers from `honnef.co/go/tools`:
+The `style` step catches what the editor (gopls) already shows as a hint, so it cannot be overlooked. It runs four groups of analyzers from `honnef.co/go/tools`:
 
 | Family | Detects | Example |
 |---|---|---|
 | `SA` | probable bugs | `a == a` |
 | `S` | simplifications | `if ok { return true }; return false` |
 | `QF` | editor quick fixes | `if/else if` chain that should be a `switch` (`QF1003`) |
+| `U` | unused code (`U1000`) | unexported func/method/type/field with no callers |
 
 `ST` (naming and comment style) is **not** included. There is no configuration and no opt-out: fix the code.
 

@@ -18,32 +18,57 @@ func noPackagesToVet(output string) bool {
 		strings.Contains(output, "build constraints exclude all Go files")
 }
 
-// runStyle runs the style analyzers over the module through `go vet -vettool=<this binary>`.
-// It returns the tool output and whether the step failed. The error is set only when the
-// gotest binary cannot be located.
+// runStyle runs the style analyzers (QF, S, SA via `go vet -vettool=<this binary>`)
+// and the unused analyzer (U1000 via `<this binary>`) over the module.
+// It returns the combined output and whether the step failed. The error is set only
+// when the gotest binary cannot be located.
 func (g *Go) runStyle(runAll bool) (output string, failed bool, err error) {
 	self, err := os.Executable()
 	if err != nil {
 		return "", true, fmt.Errorf("style: cannot locate the gotest binary: %w", err)
 	}
-	args := []string{"vet", styleFlagPrefix + self}
-	if runAll {
-		args = append(args, "-tags=integration")
-	}
-	args = append(args, "./...")
 
-	cmd := GoTestCmdFn(context.Background(), g.rootDir, "go", args...)
-	cmd.Env = append(os.Environ(), styleToolEnv+"=1")
+	vetArgs := []string{"vet", styleFlagPrefix + self}
+	var unusedArgs []string
+	if runAll {
+		vetArgs = append(vetArgs, "-tags=integration")
+		unusedArgs = append(unusedArgs, "-tags=integration")
+	}
+	vetArgs = append(vetArgs, "./...")
+	unusedArgs = append(unusedArgs, "./...")
+
+	vetOut, vetFailed := g.runStyleCmd(styleToolEnv, "go", vetArgs...)
+	unusedOut, unusedFailed := g.runStyleCmd(unusedToolEnv, self, unusedArgs...)
+
+	if !vetFailed && !unusedFailed {
+		return vetOut + unusedOut, false, nil
+	}
+	var combined strings.Builder
+	if vetFailed {
+		combined.WriteString(vetOut)
+	}
+	if unusedFailed {
+		if combined.Len() > 0 && !strings.HasSuffix(vetOut, "\n") {
+			combined.WriteByte('\n')
+		}
+		combined.WriteString(unusedOut)
+	}
+	return groupStyleFindings(combined.String()), true, nil
+}
+
+func (g *Go) runStyleCmd(envKey, name string, args ...string) (string, bool) {
+	cmd := GoTestCmdFn(context.Background(), g.rootDir, name, args...)
+	cmd.Env = append(os.Environ(), envKey+"=1")
 	var out strings.Builder
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 	if runErr := cmd.Run(); runErr != nil {
 		if noPackagesToVet(out.String()) {
-			return out.String(), false, nil
+			return out.String(), false
 		}
-		return groupStyleFindings(out.String()), true, nil
+		return out.String(), true
 	}
-	return out.String(), false, nil
+	return out.String(), false
 }
 
 // styleFinding matches one `file:line:col: message` line of the style tool.

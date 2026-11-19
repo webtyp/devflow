@@ -16,8 +16,6 @@ import (
 	gitmod "webtyp.com/git"
 )
 
-var semverTagRe = regexp.MustCompile(`^v?\d+\.\d+\.\d+$`)
-
 // GoTestCmdFn creates the command used to run 'go test'. Override in tests to avoid
 // launching a real nested go test subprocess (e.g. from Release→Push→Test).
 var GoTestCmdFn = testCommand

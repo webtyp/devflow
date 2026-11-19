@@ -14,14 +14,21 @@ import (
 )
 
 // runStyle writes src as main.go of a temp module and runs the full suite with the
-// toolchain mocked except for the `go vet -vettool=...` call, which runs for real.
+// toolchain mocked except for the style & unused checks, which run for real.
 // It returns the summary line and everything printed to the console.
 func runStyle(t *testing.T, src string) (summary, console string) {
 	t.Helper()
+	return runStyleFiles(t, map[string]string{"main.go": src})
+}
+
+func runStyleFiles(t *testing.T, files map[string]string) (summary, console string) {
+	t.Helper()
 	dir, cleanup := testCreateGoModule("example.com/styletest")
 	defer cleanup()
-	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0644); err != nil {
-		t.Fatal(err)
+	for name, src := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	git, _ := gitmod.NewGit()
@@ -33,7 +40,9 @@ func runStyle(t *testing.T, src string) (summary, console string) {
 	origCmd, origExec := devflow.GoTestCmdFn, command.Exec
 	t.Cleanup(func() { devflow.GoTestCmdFn, command.Exec = origCmd, origExec })
 	devflow.GoTestCmdFn = func(ctx context.Context, d, name string, args ...string) *exec.Cmd {
-		if len(args) > 0 && args[0] == "vet" && hasArgWithPrefix(args, "-vettool=") {
+		isVetTool := len(args) > 0 && args[0] == "vet" && hasArgWithPrefix(args, "-vettool=")
+		isUnusedTool := name != "go" && len(args) > 0 && args[len(args)-1] == "./..."
+		if isVetTool || isUnusedTool {
 			c := exec.CommandContext(ctx, name, args...)
 			c.Dir = d
 			return c
@@ -140,5 +149,30 @@ func TestStyle_NoPackagesPasses(t *testing.T) {
 	summary, _ := runStyle(t, src)
 	if !strings.Contains(summary, "style ✅") {
 		t.Fatalf("summary %q lacks style ✅", summary)
+	}
+}
+
+func TestStyle_UnusedFails(t *testing.T) {
+	src := `package main
+
+type srv struct{}
+
+func (s *srv) dead() {}
+
+func main() { _ = &srv{} }
+`
+	summary, console := runStyle(t, src)
+	if !strings.Contains(summary, "style ❌") || !strings.Contains(console, "is unused") {
+		t.Fatalf("summary %q console %q", summary, console)
+	}
+}
+
+func TestStyle_UsedOnlyInTestPasses(t *testing.T) {
+	summary, console := runStyleFiles(t, map[string]string{
+		"main.go":      "package main\n\nfunc helper() int { return 42 }\n\nfunc main() {}\n",
+		"lib_test.go":  "package main\n\nimport \"testing\"\n\nfunc TestHelper(t *testing.T) { _ = helper() }\n",
+	})
+	if !strings.Contains(summary, "style ✅") {
+		t.Fatalf("summary %q console %q", summary, console)
 	}
 }

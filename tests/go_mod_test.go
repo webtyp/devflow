@@ -307,4 +307,43 @@ replace github.com/test/lib4 => ../lib4
 			}
 		}
 	})
+
+	t.Run("SetRootDirResetsCachedLinesAcrossProjects", func(t *testing.T) {
+		root := t.TempDir()
+		projA := filepath.Join(root, "org", "modules", "modA")
+		projB := filepath.Join(root, "org", "appB")
+		lib := filepath.Join(root, "libs", "dom")
+		for _, d := range []string{projA, projB, lib} {
+			if err := os.MkdirAll(d, 0755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := os.WriteFile(filepath.Join(projA, "go.mod"), []byte("module a\n\nreplace example.com/dom => ../../../libs/dom\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(projB, "go.mod"), []byte("module b\n\nreplace example.com/dom => ../../libs/dom\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		gm := devflow.NewGoModHandler()
+		gm.SetRootDir(projA)
+		pathsA, err := gm.GetReplacePaths()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(pathsA) != 1 || pathsA[0].LocalPath != lib {
+			t.Fatalf("projA: expected %s, got %+v", lib, pathsA)
+		}
+
+		// Switching the same handler to projB must reload projB's go.mod
+		// instead of resolving projA's "../../../libs/dom" against projB.
+		gm.SetRootDir(projB)
+		pathsB, err := gm.GetReplacePaths()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(pathsB) != 1 || pathsB[0].LocalPath != lib {
+			t.Fatalf("projB: expected %s, got %+v", lib, pathsB)
+		}
+	})
 }

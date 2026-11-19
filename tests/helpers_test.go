@@ -43,33 +43,6 @@ func testCreateGitRepo() (dir string, cleanup func()) {
 	return dir, cleanup
 }
 
-// testCreateCmdDirs creates a temporary Go module with cmd/ subdirectories.
-func testCreateCmdDirs(t *testing.T, cmds ...string) (dir string, cleanup func()) {
-	t.Helper()
-	dir, cleanup = testCreateGoModule("testmodule")
-
-	if len(cmds) > 0 {
-		cmdDir := filepath.Join(dir, "cmd")
-		if err := os.MkdirAll(cmdDir, 0755); err != nil {
-			t.Fatalf("failed to create cmd dir: %v", err)
-		}
-
-		for _, cmd := range cmds {
-			path := filepath.Join(cmdDir, cmd)
-			if err := os.MkdirAll(path, 0755); err != nil {
-				t.Fatalf("failed to create cmd/%s dir: %v", cmd, err)
-			}
-			mainFile := filepath.Join(path, "main.go")
-			content := "package main\n\nfunc main() {}\n"
-			if err := os.WriteFile(mainFile, []byte(content), 0644); err != nil {
-				t.Fatalf("failed to write main.go for %s: %v", cmd, err)
-			}
-		}
-	}
-
-	return dir, cleanup
-}
-
 // testCreateGoModule creates a temporary Go module
 func testCreateGoModule(moduleName string) (dir string, cleanup func()) {
 	dir, _ = os.MkdirTemp("", "gitgo-gomod-")
