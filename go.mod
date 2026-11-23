@@ -40,7 +40,7 @@ require (
 	webtyp.com/definitioncheck v0.0.3 // indirect
 	webtyp.com/deploy v0.2.115 // indirect
 	webtyp.com/device v0.1.0 // indirect
-	webtyp.com/dom v0.13.32 // indirect
+	webtyp.com/dom v0.13.34 // indirect
 	webtyp.com/escape v0.1.0 // indirect
 	webtyp.com/events v0.1.15 // indirect
 	webtyp.com/fetch v0.1.30 // indirect
