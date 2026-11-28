@@ -52,7 +52,7 @@ require (
 	webtyp.com/js v0.1.6 // indirect
 	webtyp.com/json v0.5.40 // indirect
 	webtyp.com/pwa v0.2.24 // indirect
-	webtyp.com/router v0.5.9 // indirect
+	webtyp.com/router v0.5.10 // indirect
 	webtyp.com/selfupdate v0.0.11 // indirect
 	webtyp.com/sitec v0.2.100 // indirect
 	webtyp.com/storage v0.2.3 // indirect
@@ -67,6 +67,6 @@ require (
 require (
 	golang.org/x/sys v0.49.0 // indirect
 	webtyp.com/context v0.0.23
-	webtyp.com/fmt v1.0.3 // indirect
+	webtyp.com/fmt v1.0.4 // indirect
 	webtyp.com/wizard v0.0.30
 )
