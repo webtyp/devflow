@@ -49,12 +49,12 @@ require (
 	webtyp.com/ghaction v0.1.2 // indirect
 	webtyp.com/html v0.0.34 // indirect
 	webtyp.com/image v0.1.16 // indirect
-	webtyp.com/js v0.1.6 // indirect
+	webtyp.com/js v0.1.8 // indirect
 	webtyp.com/json v0.5.40 // indirect
 	webtyp.com/pwa v0.2.24 // indirect
 	webtyp.com/router v0.5.10 // indirect
 	webtyp.com/selfupdate v0.0.11 // indirect
-	webtyp.com/sitec v0.2.100 // indirect
+	webtyp.com/sitec v0.2.107 // indirect
 	webtyp.com/storage v0.2.3 // indirect
 	webtyp.com/svg v0.3.43 // indirect
 	webtyp.com/time v0.6.7 // indirect
