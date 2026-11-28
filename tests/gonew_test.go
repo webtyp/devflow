@@ -2,14 +2,15 @@
 
 package devflow_test
 
-import "webtyp.com/devflow"
-
 import (
-	gitmod "webtyp.com/git"
+	"webtyp.com/devflow"
+
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	gitmod "webtyp.com/git"
 )
 
 func TestProjectTemplates(t *testing.T) {
@@ -275,7 +276,7 @@ func TestGoNewModulePathFromNeighbor(t *testing.T) {
 
 // The owner is never guessed: without one, Create and AddRemote refuse and change nothing
 // (2026-11-10: guessing it from a neighbor left on an old organization tried to create
-// tinywasm/backoff, an organization that no longer exists).
+// webtyp/backoff, an organization that no longer exists).
 func TestGoNewOwnerIsRequired(t *testing.T) {
 	tmpDir := t.TempDir()
 

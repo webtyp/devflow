@@ -159,3 +159,27 @@ func TestBrowserAndWorkerPasses(t *testing.T) {
 		}
 	})
 }
+
+// A stories/ submodule (all !wasm: it drives Chrome) has nothing to run in the browser pass. Running go test there
+// answered "no packages to test" and turned the whole browser pass red in every module that ships stories.
+func TestBrowserPass_SkipsSubmoduleWithoutBrowserTests(t *testing.T) {
+	dir, cleanup := testCreateGoModule("testbrowserstories")
+	defer cleanup()
+	os.WriteFile(filepath.Join(dir, "view.go"), []byte("//go:build browser\n\npackage main\n"), 0644)
+	stories := filepath.Join(dir, "stories")
+	os.MkdirAll(stories, 0755)
+	os.WriteFile(filepath.Join(stories, "go.mod"), []byte("module testbrowserstories/stories\n\ngo 1.20\n"), 0644)
+	os.WriteFile(filepath.Join(stories, "story.go"), []byte("//go:build !wasm\n\npackage stories\n"), 0644)
+
+	var browserRuns int
+	check := captureGoTest(t, dir, devflow.TestOptions{NoCache: true})
+	check(func(a []string) bool {
+		if len(a) > 0 && a[0] == "test" && hasArgs("-tags=browser")(a) {
+			browserRuns++
+		}
+		return false
+	})
+	if browserRuns != 1 {
+		t.Fatalf("browser go test runs = %d, want 1 (the root only; stories/ has no browser tests)", browserRuns)
+	}
+}

@@ -26,6 +26,9 @@ func runStyleFiles(t *testing.T, files map[string]string) (summary, console stri
 	dir, cleanup := testCreateGoModule("example.com/styletest")
 	defer cleanup()
 	for name, src := range files {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0755); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0644); err != nil {
 			t.Fatal(err)
 		}

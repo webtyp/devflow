@@ -1170,7 +1170,17 @@ func (g *Go) wasmEnabledIn(dir string, runAll bool) bool {
 // Falls back to "./..." if go list gives nothing, so the caller still sees a real error
 // instead of an empty, silently-passing run.
 func (g *Go) wasmTestPackages(dir string, runAll bool, extraTag string) []string {
-	args := []string{"list", "-f", `{{.ImportPath}} {{len .GoFiles}} {{len .TestGoFiles}} {{len .XTestGoFiles}} {{join .IgnoredGoFiles ","}}`}
+	pkgs, _ := g.listWasmTestPackages(dir, runAll, extraTag)
+	if len(pkgs) == 0 {
+		return []string{"./..."}
+	}
+	return pkgs
+}
+
+// listWasmTestPackages lists the packages of dir that have tests and build for wasm with extraTag. listed is false
+// when go list itself failed (a broken module): the caller then lets go test report the real error.
+func (g *Go) listWasmTestPackages(dir string, runAll bool, extraTag string) (pkgs []string, listed bool) {
+	args := []string{"list", "-e", "-f", `{{.ImportPath}} {{len .GoFiles}} {{len .TestGoFiles}} {{len .XTestGoFiles}} {{join .IgnoredGoFiles ","}}`}
 	if tags := buildTagsArg(runAll, extraTag); tags != "" {
 		args = append(args, tags)
 	}
@@ -1179,13 +1189,8 @@ func (g *Go) wasmTestPackages(dir string, runAll bool, extraTag string) []string
 	cmd := exec.Command("go", args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
-	out, _ := cmd.Output() // stderr carries the excluded packages: expected, not fatal
-
-	pkgs := ParseWasmTestPackages(string(out))
-	if len(pkgs) == 0 {
-		return []string{"./..."}
-	}
-	return pkgs
+	out, err := cmd.Output() // stderr carries the excluded packages: expected, not fatal
+	return ParseWasmTestPackages(string(out)), err == nil
 }
 
 // ParseWasmTestPackages keeps the packages that have tests AND can be built for wasm.

@@ -85,7 +85,7 @@ gonew add-remote ./my-project -owner=webtyp -visibility=private
 ## Features
 
 - **Strict Validation**: Enforces valid repository names and descriptions.
-- **Explicit owner**: the GitHub owner is always given with `--owner` and never guessed from `gh`, git or neighbor folders (a neighbor left on an old organization once made gonew try to create `tinywasm/backoff`). Generates an MIT license by default.
+- **Explicit owner**: the GitHub owner is always given with `--owner` and never guessed from `gh`, git or neighbor folders (a neighbor left on an old organization once made gonew try to create `webtyp/backoff`). Generates an MIT license by default.
 - **Multi-Account Support**: Use `--owner` to specify different GitHub accounts/organizations (cdvelop, veltylabs, webtyp, etc.).
 - **Graceful Fallback**: Falls back to local-only mode if GitHub is unavailable.
 - **Project Structure**: Sets up `main` branch, `.gitignore` for Go, and initial version `v0.0.1`.

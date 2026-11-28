@@ -35,6 +35,10 @@ type GoModHandler struct {
 	batchKey     string
 	batchAdded   []string
 	batchRemoved []string
+
+	// Per-module serialization for automatic `go mod tidy` retries.
+	tidyMu    sync.Mutex
+	tidyLocks map[string]*sync.Mutex
 }
 
 // ReplaceEntry represents a local replace directive found in go.mod

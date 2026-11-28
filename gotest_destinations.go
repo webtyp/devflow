@@ -30,12 +30,21 @@ func buildTagsArg(runAll bool, extraTag string) string {
 }
 
 func (g *Go) runBrowserTests(dir string, runAll bool, timeoutSec int, extraArgs []string) (output string, failed bool) {
+	// A submodule with no browser-buildable tests (a stories/ module, all !wasm because it drives Chrome) has nothing
+	// to run here: skipped, never "no packages to test" counted as a failure.
+	pkgs, listed := g.listWasmTestPackages(dir, runAll, browserTag)
+	if listed && len(pkgs) == 0 && dir != g.rootDir {
+		return "", false
+	}
+	if len(pkgs) == 0 {
+		pkgs = []string{"./..."}
+	}
 	args := []string{"test", "-exec", g.wasmExecArg(), "-count=1"}
 	if tags := buildTagsArg(runAll, browserTag); tags != "" {
 		args = append(args, tags)
 	}
 	args = append(args, extraArgs...)
-	args = append(args, g.wasmTestPackages(dir, runAll, browserTag)...)
+	args = append(args, pkgs...)
 
 	ctx, cancel := context.WithTimeout(context.Background(), g.wasmTimeout(timeoutSec))
 	defer cancel()

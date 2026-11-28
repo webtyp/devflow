@@ -44,7 +44,7 @@ func MaybeRunStyleTool() {
 // and writestring (inefficient WriteString concatenation).
 // ST (naming and comment style) is deliberately absent.
 func styleAnalyzers() []*analysis.Analyzer {
-	all := []*analysis.Analyzer{writeStringAnalyzer}
+	all := []*analysis.Analyzer{writeStringAnalyzer, uiTimerAnalyzer}
 	for _, group := range [][]*lint.Analyzer{quickfix.Analyzers, simple.Analyzers, staticcheck.Analyzers} {
 		for _, l := range group {
 			all = append(all, l.Analyzer)
